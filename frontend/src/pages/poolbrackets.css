@@ -1,0 +1,475 @@
+/*
+ * Pool & Brackets (solo lectura):
+ * antes las cards tenían width/height fijos y el contenido interior quedaba recortado
+ * por overflow:hidden. Aquí las tarjetas llenan la columna y crecen en altura según el contenido.
+ */
+
+.poolbrackets-page .brackets-main-canvas-block,
+.poolbrackets-page .brackets-ranked-canvas-block {
+  overflow-x: auto;
+  overflow-y: visible;
+  /* max-width en .brackets-content puede hacer el lienzo más ancho que la columna → scroll suave */
+  -webkit-overflow-scrolling: touch;
+}
+
+.poolbrackets-page .placements-bracket-board {
+  overflow-x: auto;
+  overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
+  /* Preferencia UX: filas de cada partido siguen una altura mínima cómoda; la tarjeta puede crecer */
+  --match-card-height: clamp(154px, 22vw, 198px);
+}
+
+@media (max-width: 1024px) {
+  .poolbrackets-page .brackets-main-canvas-block,
+  .poolbrackets-page .brackets-ranked-canvas-block {
+    overflow-x: auto;
+  }
+
+  .poolbrackets-page .placements-bracket-board {
+    overflow-x: auto;
+  }
+}
+
+.poolbrackets-page .placements-round-matches {
+  grid-auto-rows: auto;
+}
+
+.poolbrackets-page[data-game-card-border-hover] .placements-match-card--game-link {
+  cursor: pointer;
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .poolbrackets-page[data-game-card-border-hover] .placements-match-card--game-link:hover {
+    border-color: #4f67d8;
+    box-shadow:
+      0 0 0 1px rgba(79, 103, 216, 0.45),
+      0 4px 14px rgba(79, 103, 216, 0.16),
+      inset 0 1px 0 rgba(255, 255, 255, 0.92);
+  }
+}
+
+.poolbrackets-page[data-game-card-border-hover] .placements-match-card--game-link:focus-visible {
+  border-color: #4f67d8;
+  outline: 2px solid #4f67d8;
+  outline-offset: 2px;
+  box-shadow:
+    0 0 0 1px rgba(79, 103, 216, 0.35),
+    0 4px 14px rgba(79, 103, 216, 0.12);
+}
+
+.poolbrackets-page[data-game-card-border-hover] .placements-match-card--game-link:active {
+  border-color: #3d52b8;
+}
+
+.poolbrackets-page .placements-match-card {
+  /* Flex en lugar del grid genérico: reparte la altura mínima entre las dos filas de equipos
+     para que marcadores / banderas queden al mismo nivel dentro de cada partido */
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  min-height: var(--match-card-height, 156px);
+  height: auto;
+  max-height: none;
+  /* El layout base usa overflow:hidden; aquí sólo cortamos lateralmente si hace falta */
+  overflow-x: hidden;
+  overflow-y: visible;
+  border-radius: 10px;
+  border: 1px solid #cdd6e8;
+  box-shadow:
+    0 1px 2px rgba(22, 34, 72, 0.06),
+    0 4px 14px rgba(22, 34, 72, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.92);
+  background: linear-gradient(180deg, #fff 0%, #fafbfd 100%);
+}
+
+.poolbrackets-page .placements-match-card .placements-team-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.poolbrackets-page .placements-match-card .placements-team-row {
+  flex: 1 1 0;
+  min-height: calc(34px * var(--card-scale, 1));
+  padding-block: calc(0.26rem * var(--card-scale, 1));
+}
+
+.poolbrackets-page .placements-match-card .placements-team-body {
+  justify-content: center;
+  align-self: stretch;
+}
+
+.poolbrackets-page .placements-match-card-actions {
+  padding-top: calc(0.16rem * var(--card-scale, 1));
+  border-bottom: 1px solid rgba(207, 214, 234, 0.65);
+  margin-bottom: 1px;
+  flex-shrink: 0;
+}
+
+.poolbrackets-page .placements-match-number {
+  font-size: calc(0.72rem * var(--card-scale, 1));
+  letter-spacing: 0.03em;
+  color: #3d4a6b;
+  align-self: center;
+}
+
+.poolbrackets-page .placements-match-datetime {
+  opacity: 0.92;
+  padding-bottom: 1px;
+  flex-shrink: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
+  column-gap: 0.4rem;
+  row-gap: 0.08rem;
+}
+
+.poolbrackets-page .placements-datetime-label span {
+  font-size: calc(0.58rem * var(--card-scale, 1));
+  color: #6b7391 !important;
+}
+
+.poolbrackets-page .placements-datetime-input {
+  font-size: calc(0.66rem * var(--card-scale, 1)) !important;
+  line-height: 1.25;
+  width: 100%;
+  max-width: 100px;
+  box-sizing: border-box;
+  text-align: start;
+}
+
+.poolbrackets-page .placements-datetime-label {
+  flex-direction: column;
+  min-width: 0;
+  justify-content: flex-start;
+  align-self: stretch;
+}
+
+.poolbrackets-page .placements-match-title-block {
+  width: 100%;
+  align-items: center;
+  text-align: center;
+}
+
+.poolbrackets-page .placements-team-row {
+  border-radius: 6px;
+  margin: 0 1px;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.poolbrackets-page .placements-team-list {
+  gap: 2px;
+}
+
+/* Equipos: nombre legible dentro del ancho disponible */
+.poolbrackets-page .placements-team-name-line,
+.poolbrackets-page .placements-team-from-standings-name {
+  min-width: 0;
+}
+
+.poolbrackets-page .placements-team-select,
+.poolbrackets-page .placements-team-from-standings-name {
+  font-size: calc(0.78rem * var(--card-scale, 1));
+  line-height: 1.2;
+}
+
+/* Última fase: fila del input de posición centrada (readonly en pool) */
+.poolbrackets-page .placements-match-actions-last-phase-input-row {
+  justify-content: center;
+  align-items: center;
+}
+
+.poolbrackets-page .placements-match-actions-last-phase-input-row .placements-match-placement-input {
+  text-align: center;
+}
+
+/* —— Posiciones finales (tabla placements) —— */
+.poolbrackets-final-actions {
+  margin-top: 0.65rem;
+}
+
+.poolbrackets-final-toggle {
+  appearance: none;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  background: #fff;
+  color: #334155;
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 0.45rem 1rem;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.poolbrackets-final-toggle:hover {
+  border-color: #94a3b8;
+  background: #f8fafc;
+}
+
+.poolbrackets-final-toggle--active {
+  background: #b91c1c;
+  border-color: #b91c1c;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(185, 28, 28, 0.25);
+}
+
+.poolbrackets-final-toggle--active:hover {
+  background: #991b1b;
+  border-color: #991b1b;
+}
+
+.poolbrackets-final-section {
+  margin-bottom: 1.25rem;
+  padding: 1rem 1rem 1.1rem;
+  border-radius: 12px;
+  border: 1px solid #dbe3f0;
+  background: #fff;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.06);
+}
+
+.poolbrackets-final-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0.85rem;
+}
+
+.poolbrackets-final-trophy {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.poolbrackets-final-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #64748b;
+  letter-spacing: 0.01em;
+}
+
+.poolbrackets-final-state {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #64748b;
+}
+
+.poolbrackets-final-state--error {
+  color: #b91c1c;
+}
+
+.poolbrackets-final-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.poolbrackets-final-table {
+  width: 100%;
+  min-width: 640px;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.poolbrackets-final-th,
+.poolbrackets-final-cell,
+.poolbrackets-final-placement-label {
+  border: 1px solid #e2e8f0;
+  padding: 0.55rem 0.65rem;
+  vertical-align: middle;
+}
+
+.poolbrackets-final-th {
+  background: #f8fafc;
+  color: #475569;
+  font-weight: 700;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.poolbrackets-final-th--placement {
+  text-align: left;
+  min-width: 8.5rem;
+}
+
+.poolbrackets-final-row:nth-child(even) {
+  background: #f8fafc;
+}
+
+.poolbrackets-final-row:nth-child(odd) {
+  background: #fff;
+}
+
+.poolbrackets-final-placement-label {
+  text-align: left;
+  font-weight: 700;
+  white-space: nowrap;
+  background: inherit;
+}
+
+.poolbrackets-final-placement-label--gold {
+  color: #ca8a04;
+}
+
+.poolbrackets-final-placement-label--silver {
+  color: #64748b;
+}
+
+.poolbrackets-final-placement-label--bronze {
+  color: #b45309;
+}
+
+.poolbrackets-final-placement-label--plain {
+  color: #334155;
+  font-weight: 600;
+}
+
+.poolbrackets-final-medal {
+  margin-right: 0.35rem;
+}
+
+.poolbrackets-final-cell {
+  text-align: center;
+  background: inherit;
+}
+
+.poolbrackets-final-cell--empty {
+  color: #94a3b8;
+}
+
+.poolbrackets-final-team {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  max-width: 100%;
+}
+
+.poolbrackets-final-team-flag {
+  width: 28px;
+  height: 20px;
+  object-fit: cover;
+  border-radius: 3px;
+  border: 1px solid #e2e8f0;
+  flex-shrink: 0;
+}
+
+.poolbrackets-final-team-name {
+  font-weight: 600;
+  color: #1e293b;
+  line-height: 1.25;
+  text-align: left;
+}
+
+@media (max-width: 768px) {
+  .poolbrackets-final-section {
+    padding: 0.85rem;
+  }
+
+  .poolbrackets-final-heading {
+    align-items: flex-start;
+    gap: 0.35rem;
+  }
+
+  .poolbrackets-final-title {
+    font-size: 0.98rem;
+    line-height: 1.25;
+  }
+
+  .poolbrackets-final-table-wrap {
+    overflow-x: visible;
+  }
+
+  .poolbrackets-final-table {
+    min-width: 0;
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  .poolbrackets-final-table thead {
+    display: none;
+  }
+
+  .poolbrackets-final-table tbody {
+    display: block;
+  }
+
+  .poolbrackets-final-row {
+    display: block;
+    margin: 0 0 0.7rem;
+    border: 1px solid #d8e0ee;
+    border-radius: 10px;
+    overflow: hidden;
+    background: #ffffff;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
+  }
+
+  .poolbrackets-final-row:last-child {
+    margin-bottom: 0;
+  }
+
+  .poolbrackets-final-placement-label {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    width: 100%;
+    border: none;
+    border-bottom: 1px solid #e2e8f0;
+    padding: 0.55rem 0.7rem;
+    background: #f8fafc;
+    font-size: 0.86rem;
+  }
+
+  .poolbrackets-final-cell {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+    width: 100%;
+    border: none;
+    border-bottom: 1px solid #eef2f7;
+    padding: 0.5rem 0.7rem;
+    text-align: left;
+    background: #ffffff;
+  }
+
+  .poolbrackets-final-cell:last-child {
+    border-bottom: none;
+  }
+
+  .poolbrackets-final-cell::before {
+    content: attr(data-division);
+    flex: 0 0 auto;
+    max-width: 44%;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #475569;
+    line-height: 1.25;
+  }
+
+  .poolbrackets-final-team {
+    justify-content: flex-end;
+    width: auto;
+    min-width: 0;
+    max-width: 56%;
+  }
+
+  .poolbrackets-final-team-name {
+    font-size: 0.78rem;
+    text-align: right;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}

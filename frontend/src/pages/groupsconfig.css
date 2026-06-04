@@ -1,0 +1,235 @@
+.calendarconfig_page {
+  min-height: 100vh;
+  background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+}
+
+.calendarconfig_topbar {
+  margin-bottom: 18px;
+}
+
+.calendarconfig_content {
+  width: min(1140px, 94%);
+  margin: 0 auto;
+  padding: 14px 0 36px;
+}
+
+.calendarconfig_header {
+  margin-bottom: 18px;
+}
+
+.calendarconfig_title {
+  margin: 0;
+  font-size: 1.9rem;
+  color: #0f172a;
+}
+
+.calendarconfig_subtitle {
+  margin: 6px 0 0;
+  color: #475569;
+}
+
+.calendarconfig_controls {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+  padding: 14px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.calendarconfig_field {
+  display: grid;
+  gap: 6px;
+  color: #334155;
+  font-weight: 600;
+}
+
+.calendarconfig_field input,
+.calendarconfig_field select {
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 0.95rem;
+  background-color: #fff;
+}
+
+.calendarconfig_field input:focus,
+.calendarconfig_field select:focus,
+.calendarconfig_team_select:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.calendarconfig_actions {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  justify-content: flex-end;
+}
+
+.calendarconfig_btn {
+  border: none;
+  border-radius: 10px;
+  padding: 10px 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.calendarconfig_btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
+}
+
+.calendarconfig_btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.calendarconfig_btn_primary {
+  background: #2563eb;
+  color: #fff;
+}
+
+.calendarconfig_btn_secondary {
+  background: #e2e8f0;
+  color: #1e293b;
+}
+
+.calendarconfig_grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.calendarconfig_card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+  padding: 14px;
+}
+
+.calendarconfig_card_title {
+  margin: 0 0 12px;
+  color: #0f172a;
+  font-size: 1.05rem;
+}
+
+.calendarconfig_table {
+  display: grid;
+  gap: 8px;
+}
+
+.calendarconfig_table_row {
+  display: grid;
+  grid-template-columns: 1fr 150px;
+  gap: 10px;
+  align-items: center;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+
+.calendarconfig_team_name {
+  color: #1e293b;
+  font-weight: 600;
+}
+
+.calendarconfig_team_select {
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: #fff;
+}
+
+.calendarconfig_groups {
+  display: grid;
+  gap: 10px;
+}
+
+.calendarconfig_group_block {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.calendarconfig_group_block h3 {
+  margin: 0 0 8px;
+  color: #1e293b;
+  font-size: 1rem;
+}
+
+.calendarconfig_group_block ul {
+  margin: 0;
+  padding-left: 18px;
+  color: #334155;
+}
+
+.calendarconfig_group_empty {
+  margin: 0;
+  color: #64748b;
+}
+
+.calendarconfig_message {
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin: 10px 0 18px;
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.calendarconfig_message_success {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.calendarconfig_message_error {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.calendarconfig_empty {
+  background: #fff;
+  border: 1px dashed #94a3b8;
+  border-radius: 12px;
+  padding: 26px;
+  text-align: center;
+  color: #334155;
+}
+
+@media (max-width: 960px) {
+  .calendarconfig_controls {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .calendarconfig_actions {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+
+  .calendarconfig_grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .calendarconfig_controls {
+    grid-template-columns: 1fr;
+  }
+
+  .calendarconfig_actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .calendarconfig_table_row {
+    grid-template-columns: 1fr;
+  }
+}

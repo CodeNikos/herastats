@@ -1,0 +1,19 @@
+.dashboard-container {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    padding: 20px;
+}
+
+
+  
+    .Icon .Icon-text {
+      margin: 0;
+      padding: 0;
+      }
+    
+    .Icon .Icon-text p{
+        margin: 0px;
+        font-size: 11px;
+        color: rgb(37, 37, 37);
+    }

@@ -1,0 +1,354 @@
+.Navbar_noauth{
+    display:flex;
+    height: 35px;
+    width: 100%;
+    justify-content:space-between;
+    align-items: center;
+    background-color: var(--hera-navbar-bg);
+    box-shadow: var(--hera-navbar-elev-shadow);
+    border-radius: 1.5px;
+    overflow: visible;
+    position: relative;
+    z-index: 1;
+}
+
+
+.navbar-right_noauth{
+    align-items: center;
+    display: flex;
+}
+
+.navbar-center_noauth {
+    display: flex;
+    align-items: center;
+}
+
+/* Mismo aspecto que .navbar-center del Navbar principal (texto claro + hover) */
+.Navbar_noauth .navbar-center_noauth .nav-links {
+    list-style-type: none;
+    display: flex;
+    margin: 0;
+    padding: 0;
+    align-items: center;
+    justify-content: center;
+}
+
+.Navbar_noauth .navbar-center_noauth .nav-links li a {
+    display: block;
+    color: var(--hera-nav-link-fg);
+    text-decoration: none;
+    text-align: center;
+    padding: 9px 18px;
+    transition: background-color 0.2s ease;
+}
+
+.Navbar_noauth .navbar-center_noauth .nav-links li a:hover {
+    background-color: var(--hera-nav-link-hover-bg);
+}
+
+.Navbar_noauth .navbar-center_noauth .pool-brackets-link {
+    white-space: nowrap;
+}
+
+.navbar-right_noauth a {
+    text-decoration: none;
+    color: var(--hera-navbar-text);
+    margin-right: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.navbar-right_noauth a .icon,
+.navbar-right_noauth a .text {
+    display: flex;
+    align-items: center;
+    vertical-align: middle;
+}
+
+.navbar-left_noauth {
+    display: flex;
+    width: 180px;
+    margin-left: 20px;
+    justify-content: center;
+    align-items: center;
+   }
+   
+   .navbar-left_noauth a{
+       font-size: 30px;
+       text-decoration: none;
+       color: var(--hera-navbar-text);
+       display: flex;
+       justify-content: center; 
+       align-items: center;
+       gap: 1px;
+   }
+   
+   .navbar-left_noauth img{
+     width: 35px;
+   }
+
+.noauth-mobile-menu-toggle {
+    display: none;
+    cursor: pointer;
+    color: var(--hera-navbar-text);
+    padding: 8px;
+    margin-right: 20px;
+}
+
+.noauth-mobile-menu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    right: 0;
+    left: 0;
+    background-color: var(--hera-mobile-menu-bg);
+    box-shadow: var(--hera-navbar-elev-shadow);
+    border-radius: 0 0 1.5px 1.5px;
+    z-index: 1000;
+    transform: translateY(-10px);
+    opacity: 0;
+    transition: all 0.3s ease-in-out;
+    pointer-events: none;
+}
+
+.noauth-mobile-menu-open {
+    transform: translateY(0);
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.noauth-mobile-nav-links {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+}
+
+.noauth-mobile-nav-links li {
+    border-bottom: 1px solid var(--hera-stroke-soft);
+}
+
+.noauth-mobile-nav-links li:last-child {
+    border-bottom: none;
+}
+
+.noauth-mobile-link {
+    display: block;
+    color: var(--hera-navbar-text);
+    text-decoration: none;
+    padding: 15px 20px;
+    transition: background-color 0.2s ease;
+}
+
+.noauth-mobile-link:hover {
+    background-color: var(--hera-menu-item-hover-bg);
+    color: var(--hera-menu-item-hover-fg);
+}
+
+.noauth-login-mobile {
+    font-weight: bold;
+    background-color: var(--hera-login-mobile-bg);
+}
+
+/* Menú perfil de usuario (mismo patrón que navbar autenticado) */
+.user-profile-dropdown {
+    position: relative;
+    margin-right: 20px;
+    z-index: 1001;
+}
+
+.user-profile-trigger {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    padding: 6px 10px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--hera-navbar-text);
+    font: inherit;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.user-profile-trigger:hover {
+    background-color: var(--hera-navbar-ghost-hover);
+}
+
+.user-profile-trigger .icon,
+.user-profile-trigger .text {
+    display: flex;
+    align-items: center;
+}
+
+.user-profile-trigger-text {
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.user-profile-chevron {
+    flex-shrink: 0;
+    transition: transform 0.2s ease;
+}
+
+.user-profile-chevron-open {
+    transform: rotate(180deg);
+}
+
+.user-profile-panel {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    min-width: 260px;
+    background-color: var(--hera-panel-bg);
+    border: 1px solid var(--hera-panel-border);
+    border-radius: 8px;
+    box-shadow: var(--hera-panel-elev-shadow);
+    overflow: hidden;
+}
+
+.user-profile-panel-header {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--hera-panel-divider);
+}
+
+.user-profile-panel-fullname {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--hera-navbar-text);
+    margin-bottom: 6px;
+}
+
+.user-profile-panel-email {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--hera-navbar-text);
+    word-break: break-all;
+}
+
+.user-profile-panel-role {
+    margin-top: 4px;
+    font-size: 12px;
+    color: var(--hera-text-muted);
+}
+
+.user-profile-logout-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    margin: 0;
+    padding: 12px 14px;
+    border: none;
+    background: transparent;
+    color: var(--hera-navbar-text);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.user-profile-logout-btn:hover {
+    background-color: var(--hera-menu-item-hover-bg);
+    color: var(--hera-menu-item-hover-fg);
+}
+
+.mobile-user-profile-block {
+    padding: 12px 20px;
+    background-color: var(--hera-strip-bg);
+    border-bottom: 1px solid var(--hera-panel-divider);
+}
+
+.mobile-user-profile-label {
+    display: block;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--hera-text-muted);
+    margin-bottom: 4px;
+}
+
+.mobile-user-profile-email {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--hera-navbar-text);
+    word-break: break-all;
+}
+
+.mobile-user-profile-fullname {
+    display: block;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--hera-navbar-text);
+    margin-bottom: 4px;
+}
+
+button.mobile-profile-edit-btn.noauth-mobile-link {
+    width: 100%;
+    border: none;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.mobile-user-profile-role {
+    display: block;
+    font-size: 12px;
+    color: var(--hera-text-muted);
+    margin-top: 4px;
+}
+
+.navbar-right_noauth .login {
+    text-decoration: none;
+    color: var(--hera-navbar-text);
+    margin-right: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Solo logo + Login / cuenta (p. ej. página Home): sin hamburguesa ni enlaces públicos extra */
+.Navbar_noauth--minimal .noauth-mobile-menu-toggle {
+    display: none !important;
+}
+
+.Navbar_noauth--minimal .noauth-mobile-menu {
+    display: none !important;
+}
+
+@media screen and (max-width: 768px) {
+    .Navbar_noauth--minimal .navbar-right_noauth.desktop-menu {
+        display: flex !important;
+    }
+}
+
+/* Responsive */
+@media screen and (max-width: 768px) {
+    .desktop-menu {
+        display: none;
+    }
+
+    .noauth-mobile-menu-toggle {
+        display: block;
+    }
+
+    .noauth-mobile-menu {
+        display: block;
+    }
+}
+
+@media screen and (max-width: 480px) {
+    .navbar-left_noauth {
+        margin-left: 10px;
+        width: auto;
+    }
+
+    .navbar-left_noauth a {
+        font-size: 24px;
+    }
+
+}

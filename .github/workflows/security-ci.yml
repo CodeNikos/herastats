@@ -1,0 +1,49 @@
+name: Security CI
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master, develop]
+
+jobs:
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Scan for obvious secrets in repo
+        run: node scripts/check-secrets.js
+
+  backend-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install backend deps
+        working-directory: backend
+        run: npm ci
+      - name: Run backend tests
+        working-directory: backend
+        env:
+          NODE_ENV: test
+          JWT_SECRET: test-secret-for-jest-only-32chars
+        run: npm test
+
+  frontend-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install frontend deps
+        working-directory: frontend
+        run: npm ci
+      - name: Run frontend unit tests
+        working-directory: frontend
+        run: npm test -- --passWithNoTests

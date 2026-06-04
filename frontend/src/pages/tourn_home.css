@@ -1,0 +1,260 @@
+.home_container {
+  width: auto;
+  overflow: visible;
+}
+
+.topbar_home {
+  display: flex;
+  position: fixed;
+  height: 35px;
+  width: 100%;
+  top: 0;
+  left: 0;
+  z-index: 1200;
+}
+
+.body_container_home {
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  min-height: 100vh;
+  background-color: #f5f5f5;
+}
+
+.loading_message,
+.error_message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  text-align: center;
+  color: #666;
+  font-size: 18px;
+}
+
+.error_message {
+  color: #dc3545;
+}
+
+.create_tournament_link {
+  padding: 12px 24px;
+  background-color: #4a90e2;
+  color: #ffffff;
+  text-decoration: none;
+  border-radius: 5px;
+  font-weight: 500;
+  transition: background-color 0.3s ease;
+}
+
+.create_tournament_link:hover {
+  background-color: #357abd;
+}
+
+.tournament_card_image {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background-color: #f0f0f0;
+}
+
+.tournament_card_placeholder {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.tournament_card_content {
+  padding: 10px;
+}
+
+.tourn_home_detail {
+  width:90%;
+  margin: 42px 10px 0;
+  padding: 20px 12px 0;
+}
+
+.tourn_home_overview_label {
+  margin: 0 0 12px;
+  color: #c84757;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.tourn_home_back {
+  position: static;
+  background: transparent;
+  border: 0;
+  color: #34427a;
+  cursor: pointer;
+  font-size: 24px;
+  margin: 0 0 8px;
+  padding: 0;
+  box-shadow: none;
+  outline: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.tourn_home_back:hover {
+  opacity: 0.85;
+}
+
+.tourn_home_back:focus,
+.tourn_home_back:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+.tourn_home_card {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+  background-color: #ffffff;
+  margin-top: 8px;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(17, 24, 39, 0.08);
+  border: 1px solid #eef1f7;
+  padding: 20px;
+}
+
+.tourn_home_error_button {
+  margin-top: 16px;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+}
+
+.tourn_home_image {
+  flex: 0 0 280px;
+  width: 280px;
+  height: 280px;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.tourn_home_image img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #fff;
+}
+
+.tourn_home_content {
+  flex: 1;
+  padding: 6px 0;
+}
+
+.tourn_home_placeholder {
+  flex: 0 0 280px;
+  width: 280px;
+  min-height: 280px;
+  border-radius: 10px;
+}
+
+.tourn_home_title {
+  font-size: 38px;
+  margin: 0 0 14px;
+  white-space: normal;
+  color: #1a1a33;
+}
+
+.tourn_home_meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.tourn_home_meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #7d879c;
+  font-size: 17px;
+  font-weight: 500;
+}
+
+.tourn_home_stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+  gap: 12px;
+}
+
+.tourn_home_stat_card {
+  border: 1px solid #e8ecf5;
+  border-radius: 10px;
+  padding: 12px 12px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 8px;
+  row-gap: 2px;
+  align-items: center;
+  min-width: 0;
+}
+
+.tourn_home_stat_card svg {
+  grid-row: 1 / span 2;
+  color: #a5aec3;
+  font-size: 18px;
+}
+
+.tourn_home_stat_card strong {
+  color: #1f2740;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.tourn_home_stat_card small {
+  color: #6f7891;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+@media screen and (max-width: 768px) {
+  .tourn_home_detail {
+    margin-top: 40px;
+    padding: 16px 8px 0;
+  }
+
+  .tourn_home_overview_label {
+    font-size: 18px;
+  }
+
+  .tourn_home_card {
+    flex-direction: column;
+    padding: 14px;
+    gap: 14px;
+  }
+
+  .tourn_home_image,
+  .tourn_home_placeholder {
+    width: 100%;
+    flex: none;
+  }
+
+  .tourn_home_image {
+    height: 220px;
+  }
+
+  .tourn_home_title {
+    font-size: 28px;
+  }
+
+  .tourn_home_stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .tourn_home_stat_card strong {
+    font-size: 20px;
+  }
+}

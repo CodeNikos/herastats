@@ -1,0 +1,898 @@
+.stats_page {
+  min-height: 100vh;
+  background: #f1f5f9;
+}
+
+.stats_topbar {
+  margin-bottom: 18px;
+}
+
+.stats_content {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 8px clamp(12px, 4vw, 24px) calc(34px + env(safe-area-inset-bottom, 0px));
+}
+
+.stats_header {
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: stretch;
+}
+
+.stats_title {
+  margin: 0;
+  font-size: clamp(1.35rem, 4vw, 1.8rem);
+  color: #0f172a;
+  line-height: 1.2;
+}
+
+.stats_controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.stats_field {
+  display: grid;
+  gap: 6px;
+  color: #1e293b;
+  font-weight: 600;
+  width: 20%;
+}
+
+.stats_field select {
+  min-width: min(230px, 100%);
+  width: 100%;
+  max-width: 340px;
+  border: 1px solid #d0d9e6;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 0.95rem;
+  background: #ffffff;
+  color: #0f172a;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.stats_field select:focus {
+  outline: none;
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.16);
+}
+
+.stats_grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr));
+  gap: clamp(14px, 3vw, 18px);
+}
+
+.stats_table_card {
+  background: var(--stats-card-bg, #eff6ff);
+  border: 1px solid var(--stats-card-border, rgba(37, 99, 235, 0.35));
+  border-radius: 14px;
+  box-shadow: 0 8px 18px var(--stats-card-shadow, rgba(37, 99, 235, 0.15));
+  overflow-x: auto;
+  overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
+}
+
+.stats_table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+  background: #ffffff;
+}
+
+.stats_table th,
+.stats_table td {
+  border-bottom: 1px solid #e2e8f0;
+  padding: clamp(8px, 2vw, 11px) clamp(6px, 2vw, 9px);
+  text-align: center;
+  color: #0f172a;
+}
+
+.stats_table_group_title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  background: var(--stats-header-bg, linear-gradient(90deg, #3b82f6 0%, #6366f1 100%));
+  color: #ffffff !important;
+  border-bottom: none !important;
+}
+
+.stats_table th:first-child,
+.stats_table td:first-child {
+  text-align: left;
+  padding-left: 14px;
+  width: 46%;
+}
+
+.stats_table thead tr:nth-child(2) th {
+  background: #eef2ff;
+  font-weight: 600;
+  color: #334155;
+}
+
+.stats_table tbody tr:nth-child(even) {
+  background: #f8fafc;
+}
+
+.stats_table tbody tr:hover {
+  background: #eef2ff;
+}
+
+.stats_team_link {
+  color: #1d4ed8;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.stats_team_link:hover {
+  text-decoration: underline;
+}
+
+/* ——— Clasificación por grupos (PG / W / L / GF / GA / GD) ——— */
+
+.stats_standings_card {
+  padding-bottom: 0;
+}
+
+.stats_table.stats_standings_table {
+  table-layout: auto;
+}
+
+.stats_table.stats_standings_table th:first-child,
+.stats_table.stats_standings_table td:first-child {
+  width: 2.5rem;
+  text-align: center;
+  padding-left: 12px;
+  box-shadow: none;
+}
+
+.stats_table.stats_standings_table .stats_standings_th--team,
+.stats_table.stats_standings_table .stats_standings_td--team {
+  text-align: left;
+  min-width: 8.5rem;
+}
+
+.stats_standings_th,
+.stats_standings_td--rank {
+  font-weight: 600;
+}
+
+.stats_standings_td--rank {
+  color: #475569;
+  font-variant-numeric: tabular-nums;
+}
+
+.stats_standings_team_cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+}
+
+.stats_standings_team_logo {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 1px solid #e2e8f0;
+}
+
+.stats_standings_team_link {
+  font-weight: 600;
+  min-width: 0;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  line-height: 1.25;
+}
+
+.stats_table.stats_standings_table tbody td {
+  font-variant-numeric: tabular-nums;
+}
+
+.stats_standings_row--tier-upper td:first-child {
+  box-shadow: inset 4px 0 0 #22c55e;
+}
+
+.stats_standings_row--tier-lower td:first-child {
+  box-shadow: inset 4px 0 0 #dc2626;
+}
+
+.stats_standings_row--tier-upper {
+  background: #f0fdf4 !important;
+}
+
+.stats_standings_row--tier-lower {
+  background: #fef2f2 !important;
+}
+
+.stats_table.stats_standings_table tbody tr.stats_standings_row--tier-upper:hover {
+  background: #ecfccb !important;
+}
+
+.stats_table.stats_standings_table tbody tr.stats_standings_row--tier-lower:hover {
+  background: #fee2e2 !important;
+}
+
+.stats_standings_row--placeholder td {
+  height: 2.65rem;
+  background: transparent !important;
+  box-shadow: none !important;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.stats_standings_meta {
+  padding: 10px 12px 14px;
+  background: #fafafa;
+  border-top: 1px solid #e2e8f0;
+}
+
+.stats_standings_legend {
+  margin: 0 0 10px;
+  font-size: 0.78rem;
+  color: #64748b;
+  line-height: 1.35;
+}
+
+.stats_standings_continue {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  justify-content: flex-start;
+}
+
+.stats_standings_continue_label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #334155;
+  margin-right: 10px;
+  flex: 1 1 100%;
+}
+
+@media (min-width: 520px) {
+  .stats_standings_continue_label {
+    
+    margin-right: 10px;
+  }
+}
+
+.stats_standings_badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #1e293b;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+}
+
+.stats_standings_badge_bar {
+  width: 5px;
+  height: 1.35rem;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.stats_standings_badge_bar--upper {
+  background: #22c55e;
+}
+
+.stats_standings_badge_bar--lower {
+  background: #dc2626;
+}
+
+.stats_standings_meta {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Leyenda compartida bajo todas las tarjetas de grupos */
+.stats_standings_meta--below_grid {
+  margin-top: clamp(12px, 3vw, 20px);
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  box-sizing: border-box;
+}
+
+.stats_standings_continue .stats_standings_badge {
+  flex: 1 1 calc(50% - 12px);
+  min-width: min(100%, 10rem);
+  justify-content: center;
+}
+
+@media (min-width: 520px) {
+  .stats_standings_continue .stats_standings_badge {
+    flex: 0 1 auto;
+    min-width: unset;
+    justify-content: flex-start;
+  }
+}
+
+.stats_table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.stats_theme_default {
+  --stats-card-bg: #eff6ff;
+  --stats-card-border: rgba(37, 99, 235, 0.35);
+  --stats-card-shadow: rgba(37, 99, 235, 0.15);
+  --stats-header-bg: linear-gradient(90deg, #2563eb 0%, #3b82f6 100%);
+}
+
+.stats_theme_femenino {
+  --stats-card-bg: #ffe4ef;
+  --stats-card-border: rgba(244, 114, 182, 0.45);
+  --stats-card-shadow: rgba(244, 114, 182, 0.2);
+  --stats-header-bg: linear-gradient(90deg, #f472b6 0%, #ec4899 100%);
+}
+
+.stats_theme_mixto {
+  --stats-card-bg: #f3e8ff;
+  --stats-card-border: rgba(174, 19, 188, 0.45);
+  --stats-card-shadow: rgba(34, 197, 94, 0.2);
+  --stats-header-bg: linear-gradient(90deg, #a25cc0 0%, #7c3aed 100%);
+}
+
+.stats_empty {
+  background: #ffffff;
+  border: 1px dashed #94a3b8;
+  border-radius: 10px;
+  padding: 24px;
+  text-align: center;
+  color: #334155;
+}
+
+.stats_section_tabs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.stats_section_tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #334155;
+  font-weight: 600;
+  font-size: clamp(0.82rem, 2.8vw, 0.9rem);
+  padding: 10px 16px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  margin-top: 8px;
+  flex: 1 1 auto;
+  min-width: min(100%, 5.75rem);
+  min-height: 44px;
+  box-sizing: border-box;
+}
+
+.stats_section_tab:hover {
+  border-color: #94a3b8;
+  background: #f8fafc;
+}
+
+.stats_section_tab--active {
+  border-color: #2563eb;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.stats_theme_player {
+  --stats-card-bg: #ffffff;
+}
+
+.stats_player_toolbar {
+  margin-bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+}
+
+.stats_player_toolbar .stats_division_tabs {
+  margin-bottom: 0;
+}
+
+.stats_player_scope {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.stats_player_scope_label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.stats_player_scope_select {
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  color: #1e293b;
+  min-width: min(100%, 200px);
+  max-width: 100%;
+}
+
+.stats_player_scope_select:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+}
+
+.stats_player_scope_hint {
+  margin: 8px 0 0;
+  flex-basis: 100%;
+  font-size: 0.76rem;
+  line-height: 1.35;
+  color: #64748b;
+  max-width: 52rem;
+}
+
+.stats_groups_hint {
+  margin: 0 0 12px;
+  font-size: 0.82rem;
+  line-height: 1.35;
+  color: #475569;
+  max-width: 52rem;
+}
+
+.stats_division_tabs {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+  margin-bottom: 14px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 2px;
+}
+
+.stats_division_tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #475569;
+  font-weight: 600;
+  font-size: clamp(0.8rem, 2.6vw, 0.85rem);
+  padding: 8px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  flex: 0 0 auto;
+  min-height: 42px;
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+
+.stats_division_tab:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.stats_division_tab--active {
+  background: #dc2626;
+  border-color: #b91c1c;
+  color: #ffffff;
+}
+
+.stats_player_table_wrap {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow-x: auto;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
+}
+
+.stats_player_table {
+  width: 100%;
+  min-width: 920px;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: auto;
+}
+
+.stats_player_th {
+  background: #f8fafc;
+  font-weight: 600;
+  color: #334155;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 0;
+  text-align: center;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.stats_player_th--left {
+  text-align: left;
+}
+
+.stats_player_th--highlight {
+  background: #e2e8f0;
+}
+
+.stats_player_th_btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-weight: 600;
+  color: inherit;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.stats_player_th--left .stats_player_th_btn {
+  justify-content: flex-start;
+  padding-left: 12px;
+}
+
+.stats_player_th_btn:hover {
+  background: rgba(148, 163, 184, 0.2);
+}
+
+.stats_player_th_btn--active {
+  color: #1d4ed8;
+}
+
+.stats_sort_icon {
+  flex-shrink: 0;
+  opacity: 0.55;
+}
+
+.stats_player_th_btn--active .stats_sort_icon {
+  opacity: 1;
+  color: #1d4ed8;
+}
+
+.stats_player_td {
+  padding: 10px 10px;
+  border-bottom: 1px solid #f1f5f9;
+  text-align: center;
+  color: #0f172a;
+  font-size: 0.92rem;
+}
+
+.stats_player_td--name,
+.stats_player_td--team {
+  text-align: left;
+}
+
+.stats_player_td--highlight {
+  background: #f1f5f9;
+  font-weight: 600;
+}
+
+.stats_player_tr--alt .stats_player_td {
+  background: #fafafa;
+}
+
+.stats_player_tr--alt .stats_player_td--highlight {
+  background: #e2e8f0;
+}
+
+.stats_player_team_cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stats_player_team_flag {
+  width: 28px;
+  height: 20px;
+  object-fit: cover;
+  border-radius: 3px;
+  border: 1px solid #e2e8f0;
+  flex-shrink: 0;
+}
+
+.stats_player_team_link {
+  color: #1d4ed8;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.stats_player_team_link:hover {
+  text-decoration: underline;
+}
+
+.stats_player_empty_cell {
+  padding: 28px;
+  text-align: center;
+  color: #64748b;
+}
+
+.stats_spirit_wrap {
+  margin-top: 0.5rem;
+}
+
+.stats_theme_spirit {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 8px clamp(12px, 3vw, 20px) clamp(24px, 6vw, 36px);
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.06);
+}
+
+.stats_title--spirit_main {
+  font-size: clamp(1.4rem, 5.5vw, 2rem);
+  font-weight: 800;
+  color: #0c1e3c;
+  letter-spacing: -0.02em;
+}
+
+.stats_spirit_panel {
+  margin-top: 4px;
+}
+
+.stats_spirit_panel .stats_division_tabs {
+  margin-bottom: 16px;
+}
+
+.stats_spirit_hint {
+  margin: 0 0 1rem;
+  color: #64748b;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.stats_empty--spirit {
+  margin-top: 8px;
+}
+
+.stats_spirit_table_wrap {
+  background: #ffffff;
+  border: 1px solid #e8ecf1;
+  border-radius: 12px;
+  overflow-x: auto;
+  box-shadow: 0 1px 8px rgba(15, 23, 42, 0.04);
+}
+
+.stats_spirit_table {
+  width: 100%;
+  min-width: 960px;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: auto;
+}
+
+.stats_spirit_th {
+  background: #fafbfc;
+  font-weight: 600;
+  color: #6b7280;
+  font-size: 0.78rem;
+  text-transform: none;
+  letter-spacing: 0.01em;
+  border-bottom: 1px solid #e8ecf1;
+  padding: 0;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.stats_spirit_th--team {
+  text-align: left;
+  min-width: 200px;
+}
+
+.stats_spirit_th--avg {
+  min-width: 100px;
+}
+
+.stats_spirit_col_avg {
+  background: #e8eef5;
+}
+
+.stats_spirit_th--avg.stats_spirit_col_avg {
+  background: #dde6f0;
+}
+
+.stats_spirit_th_btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  min-height: 46px;
+  padding: 10px 8px;
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-weight: 600;
+  color: inherit;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.stats_spirit_th--team .stats_spirit_th_btn {
+  justify-content: flex-start;
+  padding-left: 14px;
+}
+
+.stats_spirit_th_btn--in_col {
+  color: #475569;
+}
+
+.stats_spirit_th_btn:hover {
+  background: rgba(148, 163, 184, 0.12);
+}
+
+.stats_spirit_th_btn--active {
+  color: #1e3a5f;
+}
+
+.stats_spirit_th_btn--active .stats_spirit_sort_caret {
+  color: #dc2626;
+}
+
+.stats_spirit_sort_caret {
+  font-size: 0.6rem;
+  opacity: 0.4;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.stats_spirit_th_btn--active .stats_spirit_sort_caret {
+  opacity: 0.95;
+}
+
+.stats_spirit_th_label {
+  text-align: inherit;
+  line-height: 1.25;
+}
+
+.stats_spirit_td {
+  padding: 12px 10px;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 0.92rem;
+  color: #64748b;
+  vertical-align: middle;
+}
+
+.stats_spirit_td--team {
+  text-align: left;
+  font-weight: 600;
+}
+
+.stats_spirit_td--team .stats_spirit_team_link {
+  color: #0f172a;
+}
+
+.stats_spirit_td--num {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.stats_spirit_td--avg {
+  text-align: center;
+  font-weight: 700;
+  color: #334155;
+  font-variant-numeric: tabular-nums;
+}
+
+.stats_spirit_tr--alt .stats_spirit_td {
+  background: #f9fafb;
+}
+
+.stats_spirit_tr--alt .stats_spirit_td--avg.stats_spirit_col_avg {
+  background: #e3eaf3;
+}
+
+.stats_spirit_tr--alt .stats_spirit_td:not(.stats_spirit_col_avg) {
+  background: #f9fafb;
+}
+
+.stats_spirit_team_cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.stats_spirit_team_flag {
+  width: 30px;
+  height: 22px;
+  object-fit: cover;
+  border-radius: 3px;
+  border: 1px solid #e5e7eb;
+  flex-shrink: 0;
+}
+
+.stats_spirit_team_link {
+  font-weight: 700;
+  color: #0f172a;
+  text-decoration: none;
+}
+
+.stats_spirit_team_link:hover {
+  text-decoration: underline;
+  color: #1d4ed8;
+}
+
+.stats_th_num,
+.stats_td_num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Breakpoints coherentes con el layout flex/grid base (sin re-fijar % en pestañas) */
+@media (max-width: 900px) {
+  .stats_table_group_title {
+    font-size: clamp(0.92rem, 3.5vw, 1.05rem);
+    word-break: break-word;
+    overflow-wrap: break-word;
+  }
+
+  .stats_player_scope {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
+
+  .stats_player_scope_select {
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 600px) {
+  .stats_content {
+    padding-left: clamp(10px, 3vw, 16px);
+    padding-right: clamp(10px, 3vw, 16px);
+  }
+
+  .stats_section_tabs {
+    width: 100%;
+  }
+
+  .stats_section_tab {
+    flex: 1 1 calc(30% - 4px);
+    min-width: calc(30% - 8px);
+    text-align: center;
+    justify-content: center;
+  }
+
+  .stats_standings_th,
+  .stats_table.stats_standings_table th {
+    font-size: 0.72rem;
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+
+  .stats_standings_team_logo {
+    width: 22px;
+    height: 22px;
+  }
+
+  .stats_standings_legend {
+    font-size: 0.7rem;
+    line-height: 1.35;
+  }
+}

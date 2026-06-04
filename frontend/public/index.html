@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" href="%PUBLIC_URL%/Hera_logo.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#000000" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <meta
+      name="description"
+      content="HeraStats - Sistema de estadísticas"
+    />
+    <title>HeraStats</title>
+    <script>
+      (function () {
+        var key = '%REACT_APP_GOOGLE_MAPS_API_KEY%';
+        if (!key || key.indexOf('REACT_APP_') !== -1) return;
+        var s = document.createElement('script');
+        s.async = true;
+        s.src =
+          'https://maps.googleapis.com/maps/api/js?key=' +
+          encodeURIComponent(key) +
+          '&libraries=places';
+        document.head.appendChild(s);
+      })();
+    </script>
+  </head>
+  <body>
+    <noscript>Necesitas habilitar JavaScript para ejecutar esta aplicación.</noscript>
+    <div id="root"></div>
+  </body>
+</html>

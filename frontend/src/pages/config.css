@@ -1,0 +1,639 @@
+.config_container{
+    width:auto;
+}
+
+.topbar{
+    display: flex;
+    position: fixed;
+    height: 35px;
+    width: 100%;
+    top: 0px;
+    left: 0px;
+    
+}
+
+.config_body_container {
+    display: flex;
+    flex-direction: column;
+    margin-top: 100px;
+    align-items: center;
+    gap:10px;
+    background-color: #ffffff;
+    color: #201919;
+    font-family: 'Arial', sans-serif;
+
+}
+
+.setup_container{
+display:flex;
+gap: 20px;
+flex-wrap: wrap;
+}
+
+.rules_form {
+display:flex;
+justify-content: center;
+min-height: 600px;
+width: 600px;
+border-style: solid;
+border-width: 1px;
+border-radius: 10px;
+border-color: #979797;
+box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
+}
+
+.tabs_container {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.tabs_header {
+    display: flex;
+    border-bottom: 2px solid #e0e0e0;
+    background-color: #f8f8f8;
+    border-radius: 10px 10px 0 0;
+}
+
+.tab_button {
+    flex: 1;
+    padding: 15px 20px;
+    background-color: transparent;
+    border: none;
+    border-bottom: 3px solid transparent;
+    font-size: 16px;
+    font-weight: 500;
+    font-family: 'Arial', sans-serif;
+    color: #666666;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border-radius: 10px 10px 0 0;
+}
+
+.tab_button:hover {
+    background-color: #f0f0f0;
+    color: #333333;
+}
+
+.tab_button.active {
+    color: #4a90e2;
+    border-bottom-color: #4a90e2;
+    background-color: #ffffff;
+    font-weight: 600;
+}
+
+.tabs_content {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+}
+
+.form{
+    margin: 0;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    flex-direction: column;
+    gap: 20px;
+    width: 100%;
+}
+
+.form_group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 350px;
+}
+
+.form_group_button {
+    align-items: center;
+}
+
+.form_group label {
+    font-weight: 500;
+    color: #201919;
+    font-size: 14px;
+}
+
+.form_input_file {
+    padding: 8px;
+    border: 1px solid #979797;
+    border-radius: 5px;
+    font-size: 14px;
+    font-family: 'Arial', sans-serif;
+    color: #201919;
+    background-color: #ffffff;
+    transition: border-color 0.3s ease;
+    width: 100%;
+    box-sizing: border-box;
+    cursor: pointer;
+}
+
+.form_input_file:focus {
+    outline: none;
+    border-color: #4a90e2;
+    box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2);
+}
+
+.image_preview_container {
+    margin-top: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+
+.image_preview {
+    max-width: 100%;
+    max-height: 200px;
+    border-radius: 5px;
+    border: 1px solid #d0d0d0;
+    object-fit: contain;
+}
+
+.remove_image_button {
+    padding: 12px 24px;
+    background-color: #dc3545;
+    color: #ffffff;
+    border: none;
+    border-radius: 5px;
+    font-size: 16px;
+    font-weight: 300;
+    font-family: 'Arial', sans-serif;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    margin-top: 10px;
+    width: 50%;
+}
+
+.remove_image_button:hover {
+    background-color: #c82333;
+}
+
+.message {
+    padding: 12px 16px;
+    border-radius: 5px;
+    font-size: 14px;
+    font-weight: 500;
+    text-align: center;
+    width: 100%;
+    max-width: 350px;
+    box-sizing: border-box;
+}
+
+.message_success {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.message_error {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.form_button:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.form_button:disabled:hover {
+    background-color: #cccccc;
+    transform: none;
+}
+
+.select{
+    padding: 10px;
+    border: 1px solid #979797;
+    border-radius: 5px;
+    font-size: 14px;
+    font-family: 'Arial', sans-serif;
+    color: #201919;
+    background-color: #ffffff;
+    transition: border-color 0.3s ease;
+}
+
+.form_input {
+    padding: 10px;
+    border: 1px solid #979797;
+    border-radius: 5px;
+    font-size: 14px;
+    font-family: 'Arial', sans-serif;
+    color: #201919;
+    background-color: #ffffff;
+    transition: border-color 0.3s ease;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.form_input select {
+    width: 100%;
+}
+
+.form_input:focus,
+.form_input select:focus {
+    outline: none;
+    border-color: #4a90e2;
+    box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2);
+}
+
+.form_button {
+    padding: 12px 24px;
+    background-color: #4a90e2;
+    color: #ffffff;
+    border: none;
+    border-radius: 5px;
+    font-size: 16px;
+    font-weight: 500;
+    font-family: 'Arial', sans-serif;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.1s ease;
+    margin-top: 10px;
+    width: 50%;
+}
+
+.form_button:hover {
+    background-color: #357abd;
+    transform: translateY(-1px);
+}
+
+.form_button:active {
+    transform: translateY(0);
+    background-color: #2a6ba0;
+}
+
+.form_button_danger {
+    background-color: #c62828;
+}
+
+.form_button_danger:hover {
+    background-color: #a91f1f;
+}
+
+.reset_confirm_overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(17, 24, 39, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    padding: 16px;
+}
+
+.reset_confirm_modal {
+    width: 100%;
+    max-width: 460px;
+    background: #ffffff;
+    border-radius: 12px;
+    border: 1px solid #f1b5b5;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.24);
+    padding: 20px;
+}
+
+.reset_confirm_modal h3 {
+    margin: 0 0 10px;
+    color: #8f1d1d;
+    font-size: 20px;
+}
+
+.reset_confirm_modal p {
+    margin: 0 0 8px;
+    color: #444;
+    line-height: 1.45;
+}
+
+.reset_confirm_warning {
+    color: #a01e1e !important;
+    font-weight: 700;
+}
+
+.reset_confirm_actions {
+    margin-top: 16px;
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+}
+
+.reset_confirm_actions .form_button {
+    width: auto;
+    margin-top: 0;
+    min-width: 130px;
+}
+
+.reset_confirm_cancel {
+    background-color: #e5e7eb;
+    color: #1f2937;
+}
+
+.reset_confirm_cancel:hover {
+    background-color: #d1d5db;
+}
+
+.excel_form {
+    padding: 0;
+    position: relative;
+}
+
+.excel_form_header {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    width: 100%;
+    margin-bottom: 0px;
+    padding: 0 0 10px 0;
+    gap: 25px;
+}
+
+.form_title {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #201919;
+}
+
+.add_row_button_top {
+    width: auto;
+    padding: 8px 16px;
+    margin-top: 0;
+    font-size: 14px;
+    align-self: flex-start;
+}
+
+.excel_table_container {
+    max-height: 450px;
+    overflow-y: auto;
+    overflow-x: auto;
+    border: 1px solid #d0d0d0;
+    border-radius: 4px;
+    background-color: #ffffff;
+}
+
+.excel_table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    background-color: #ffffff;
+}
+
+.excel_header {
+    background-color: #f2f2f2;
+    border: 1px solid #d0d0d0;
+    padding: 10px;
+    text-align: left;
+    font-weight: 600;
+    color: #333333;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    white-space: nowrap;
+}
+
+.excel_action_header {
+    width: 50px;
+    text-align: center;
+}
+
+.excel_row {
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.excel_row:hover {
+    background-color: #f9f9f9;
+}
+
+.excel_cell {
+    border: 1px solid #e0e0e0;
+    padding: 0;
+    vertical-align: middle;
+}
+
+.excel_input {
+    width: 100%;
+    padding: 8px;
+    border: none;
+    background-color: transparent;
+    font-size: 14px;
+    font-family: 'Arial', sans-serif;
+    color: #201919;
+    outline: none;
+    box-sizing: border-box;
+}
+
+.excel_input:focus {
+    background-color: #e8f4f8;
+    border: 2px solid #4a90e2;
+}
+
+.excel_select {
+    cursor: pointer;
+    appearance: auto;
+}
+
+.excel_action_cell {
+    text-align: center;
+    padding: 0;
+    width: 50px;
+    height: 33.1px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    vertical-align: middle;
+}
+
+.excel_delete_button {
+    background-color: #dc3545;
+    color: #ffffff;
+    border: none;
+    border-radius: 50%;
+    width: 25px;
+    height: 25px;
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s ease;
+    padding: 0;
+    margin: 0 auto;
+    flex-shrink: 0;
+}
+
+.excel_delete_button:hover {
+    background-color: #c82333;
+}
+
+.add_row_button {
+    width: 50%;
+}
+
+/* RESPONSIVE */
+
+/* Tablets */
+@media screen and (max-width: 1024px) {
+    .config_body_container {
+        margin-top: 80px;
+        padding: 0 20px;
+    }
+
+    .rules_form {
+        width: 90%;
+        max-width: 600px;
+        min-height: 500px;
+    }
+
+    .setup_container {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+/* Tablets pequeñas y móviles grandes */
+@media screen and (max-width: 768px) {
+    .config_body_container {
+        margin-top: 60px;
+        padding: 0 15px;
+        align-items: center;
+    }
+
+    .setup_container {
+        width: 100%;
+        max-width: 100%;
+        justify-content: center;
+    }
+
+    .rules_form {
+        width: 100%;
+        max-width: 100%;
+        min-height: auto;
+    }
+
+    .tabs_content {
+        padding: 15px;
+    }
+
+    .form_group {
+        width: 350px;
+        max-width: 100%;
+    }
+
+    .form_button {
+        width: 40%;
+    }
+
+    .remove_image_button {
+        width: 40%;
+    }
+
+    .add_row_button {
+        width: 70%;
+    }
+
+    .excel_table_container {
+        max-height: 400px;
+    }
+
+    .excel_header {
+        padding: 8px;
+        font-size: 12px;
+    }
+
+    .excel_input {
+        font-size: 12px;
+        padding: 6px;
+    }
+
+    .tab_button {
+        padding: 12px 15px;
+        font-size: 14px;
+    }
+}
+
+/* Móviles */
+@media screen and (max-width: 480px) {
+    .config_body_container {
+        margin-top: 50px;
+        padding: 0 10px;
+    }
+
+    .rules_form {
+        width: 100%;
+        border-radius: 8px;
+    }
+
+    .tabs_content {
+        padding: 10px;
+    }
+
+    .form_group {
+        width: 100%;
+    }
+
+    .form_button {
+        width: 50%;
+        padding: 10px 20px;
+        font-size: 14px;
+    }
+
+    .remove_image_button {
+        width: 50%;
+        padding: 10px 20px;
+        font-size: 14px;
+    }
+
+    .add_row_button {
+        width: 80%;
+    }
+
+    .add_row_button_top {
+        padding: 6px 12px;
+        font-size: 12px;
+    }
+
+    .excel_form_header {
+        gap: 15px;
+    }
+
+    .form_title {
+        font-size: 16px;
+    }
+
+    .excel_table_container {
+        max-height: 350px;
+    }
+
+    .excel_header {
+        padding: 6px;
+        font-size: 11px;
+    }
+
+    .excel_input {
+        font-size: 11px;
+        padding: 5px;
+    }
+
+    .excel_action_cell {
+        width: 40px;
+    }
+
+    .excel_delete_button {
+        width: 20px;
+        height: 20px;
+        font-size: 14px;
+    }
+
+    .tab_button {
+        padding: 10px 12px;
+        font-size: 12px;
+    }
+
+    .tabs_header {
+        border-radius: 8px 8px 0 0;
+    }
+}
+
+

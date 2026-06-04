@@ -1,0 +1,159 @@
+.tourn-bracket-root {
+  margin-top: 1rem;
+  width: 100%;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid #ececf1;
+  padding: 1rem;
+  box-sizing: border-box;
+  color: #23263a;
+}
+
+.tourn-bracket-groups-board {
+  display: grid;
+  gap: 1rem;
+  margin-bottom: 20px;
+}
+
+.tourn-bracket-filter-row {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+ 
+.tourn-bracket-filter-field {
+  display: grid;
+  gap: 0.28rem;
+}
+
+.tourn-bracket-filter-stack {
+  gap: 0.55rem;
+}
+
+.tourn-bracket-filter-subfield {
+  display: grid;
+  gap: 0.28rem;
+}
+
+.tourn-bracket-filter-field label {
+  font-size: 0.85rem;
+  color: #4f5574;
+  font-weight: 600;
+}
+
+.tourn-bracket-filter-field select {
+  border: 1px solid #d7dbea;
+  background: #fff;
+  border-radius: 8px;
+  color: #2d3250;
+  font-size: 0.86rem;
+  padding: 0.35rem 0.55rem;
+  min-width: 180px;
+}
+
+.tourn-bracket-division-section {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.tourn-bracket-division-title {
+  margin: 0;
+  font-size: 1rem;
+  color: #2d3250;
+  padding-left: 0.15rem;
+}
+
+.tourn-bracket-group-card {
+  background: #ffffff;
+  border: 1px solid #ececf1;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.tourn-bracket-group-title {
+  margin: 0;
+  padding: 0.7rem 0.9rem;
+  font-size: 0.95rem;
+  color: #4f5574;
+  border-bottom: 1px solid #f0f1f5;
+}
+
+.tourn-bracket-table-wrap {
+  overflow-x: auto;
+}
+
+.tourn-bracket-table {
+  width: 100%;
+  min-width: 780px;
+  border-collapse: collapse;
+}
+
+.tourn-bracket-table th,
+.tourn-bracket-table td {
+  padding: 0.7rem 0.55rem;
+  border-bottom: 1px solid #f3f4f8;
+  text-align: center;
+  font-size: 0.86rem;
+  color: #4d526d;
+}
+
+.tourn-bracket-table th {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: #9ea2bb;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  background: #ffffff;
+}
+
+.tourn-bracket-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.tourn-bracket-table tbody tr:nth-child(odd) {
+  background: #fdfdff;
+}
+
+.tourn-bracket-table tbody td:first-child {
+  width: 56px;
+  font-weight: 700;
+  color: #2b2f48;
+}
+
+.tourn-bracket-team-col {
+  text-align: left;
+}
+
+.tourn-bracket-team-cell {
+  text-align: left !important;
+  min-width: 230px;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 700;
+  color: #23263a !important;
+}
+
+.tourn-bracket-team-cell img {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid #d9dcec;
+  flex: 0 0 auto;
+}
+
+.tourn-bracket-team-cell span {
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .tourn-bracket-root {
+    padding: 0.7rem;
+  }
+
+  .tourn-bracket-group-title {
+    font-size: 0.88rem;
+  }
+}

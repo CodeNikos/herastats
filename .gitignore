@@ -1,0 +1,18 @@
+# Dependencias
+node_modules/
+
+# Variables y secretos (no versionar)
+backend/.env
+backend/.env.local
+backend/.env.test
+backend/.env.seenode
+backend/.env.*.local
+frontend/.env.development.local
+frontend/.env.local
+frontend/.env.production.local
+frontend/.env.seenode
+
+# Logs / OS
+.DS_Store
+*.log
+npm-debug.log*

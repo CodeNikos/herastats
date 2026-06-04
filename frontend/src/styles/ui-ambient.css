@@ -1,0 +1,90 @@
+/* Paleta habitual (similar a valores previos del navbar). */
+:root {
+  --hera-navbar-bg: #c5c5c7;
+  --hera-navbar-text: #252525;
+  --hera-nav-link-fg: #ffffff;
+  --hera-nav-link-hover-bg: rgb(117, 118, 118);
+  --hera-dropdown-mega-bg: #c8c8c6;
+  --hera-mobile-menu-bg: #c5c5c7;
+  --hera-mobile-sub-bg: #b5b5b7;
+  --hera-panel-bg: #ececec;
+  --hera-panel-border: #c0c0c2;
+  --hera-panel-divider: rgba(0, 0, 0, 0.08);
+  --hera-body-bg: #f3f4f6;
+  --hera-body-text: #111827;
+  --hera-text-muted: rgb(96, 96, 96);
+  --hera-nav-shadow: rgba(0, 0, 0, 0.2);
+  --hera-navbar-elev-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2),
+    0 6px 20px 0 rgba(0, 0, 0, 0.19);
+  --hera-panel-elev-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  --hera-mega-link-fg: #374151;
+  --hera-mega-link-hover-bg: #eeeded;
+  --hera-mega-card-title: #000000;
+  --hera-mega-inner-border: #e5e7eb;
+  --hera-stroke-soft: rgba(0, 0, 0, 0.1);
+  --hera-strip-bg: rgba(0, 0, 0, 0.06);
+  --hera-navbar-ghost-hover: rgba(0, 0, 0, 0.08);
+  --hera-menu-item-hover-bg: rgb(117, 118, 118);
+  --hera-menu-item-hover-fg: #ffffff;
+  --hera-login-mobile-bg: rgba(0, 0, 0, 0.1);
+
+  --hera-switch-track-off: #9ca3af;
+  --hera-switch-track-on: #0369a1;
+  --hera-switch-thumb: #ffffff;
+  --hera-global-contrast: 1;
+  --hera-global-saturate: 1;
+  --hera-global-brightness: 1;
+}
+
+/* Alto contraste para mucha luz ambiental / exterior. */
+:root[data-ui-ambient='bright'] {
+  --hera-navbar-bg: #ffffff;
+  --hera-navbar-text: #0f172a;
+  --hera-nav-link-fg: #0f172a;
+  --hera-nav-link-hover-bg: #e2e8f0;
+  --hera-dropdown-mega-bg: #f8fafc;
+  --hera-mobile-menu-bg: #f1f5f9;
+  --hera-mobile-sub-bg: #e2e8f0;
+  --hera-panel-bg: #ffffff;
+  --hera-panel-border: #475569;
+  --hera-panel-divider: rgba(15, 23, 42, 0.18);
+  --hera-body-bg: #ffffff;
+  --hera-body-text: #0f172a;
+  --hera-text-muted: #1e293b;
+  --hera-nav-shadow: rgba(15, 23, 42, 0.12);
+  --hera-navbar-elev-shadow: 0 2px 8px rgba(15, 23, 42, 0.1),
+    0 12px 32px rgba(15, 23, 42, 0.08);
+  --hera-panel-elev-shadow: 0 12px 32px rgba(15, 23, 42, 0.12);
+  --hera-mega-link-fg: #0f172a;
+  --hera-mega-link-hover-bg: #e2e8f0;
+  --hera-mega-card-title: #020617;
+  --hera-mega-inner-border: #cbd5e1;
+  --hera-stroke-soft: rgba(15, 23, 42, 0.12);
+  --hera-strip-bg: rgba(15, 23, 42, 0.1);
+  --hera-navbar-ghost-hover: rgba(15, 23, 42, 0.12);
+  --hera-menu-item-hover-bg: #94a3b8;
+  --hera-menu-item-hover-fg: #0f172a;
+  --hera-login-mobile-bg: rgba(15, 23, 42, 0.08);
+
+  --hera-switch-track-off: #cbd5e1;
+  --hera-switch-track-on: #0369a1;
+  --hera-global-contrast: 1.04;
+  --hera-global-saturate: 1;
+  --hera-global-brightness: 1;
+}
+
+/* Asegura que el modo alto contraste afecte visualmente a toda la app. */
+body[data-ui-ambient='bright'] #root {
+  filter: contrast(var(--hera-global-contrast))
+    saturate(var(--hera-global-saturate))
+    brightness(var(--hera-global-brightness));
+}
+
+body[data-ui-ambient='bright'] {
+  background-color: var(--hera-body-bg);
+  color: var(--hera-body-text);
+}
+
+.App {
+  min-height: min(100vh, 100dvh);
+}

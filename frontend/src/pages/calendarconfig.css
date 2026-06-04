@@ -1,0 +1,531 @@
+.calendar-config-page {
+  min-height: 100vh;
+  background: linear-gradient(180deg, #efefef 0%, #e7e7e7 100%);
+}
+
+.calendar-config-topbar {
+  margin-bottom: 16px;
+}
+
+.calendar-config-content {
+  width: min(1040px, 95%);
+  margin: 0 auto;
+  padding: 10px 0 34px;
+}
+
+.calendar-config-header {
+  margin-bottom: 14px;
+  text-align: left;
+}
+
+.calendar-config-header h1 {
+  margin: 0;
+  color: #232323;
+  font-size: 1.9rem;
+  letter-spacing: 0.2px;
+}
+
+.calendar-config-header p {
+  margin: 6px 0 0;
+  color: #5a5a5a;
+  font-size: 0.98rem;
+}
+
+.calendar-config-tournament-card {
+  margin-top: 4px;
+  margin-bottom: 14px;
+  border: 1px solid #c8c8c8;
+  background: #f9f9f9;
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: 0 10px 22px rgba(35, 35, 35, 0.08);
+}
+
+.calendar-config-tournament-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.calendar-config-tournament-content img {
+  width: 88px;
+  height: 88px;
+  border-radius: 10px;
+  object-fit: cover;
+  border: 1px solid #bfbfbf;
+}
+
+.calendar-config-tournament-placeholder {
+  width: 88px;
+  height: 88px;
+  border-radius: 10px;
+  border: 1px dashed #b2b2b2;
+  display: grid;
+  place-items: center;
+  color: #676767;
+  font-weight: 700;
+  background: #efefef;
+  font-size: 0.85rem;
+}
+
+.calendar-config-tournament-meta h2 {
+  margin: 0 0 4px;
+  color: #2a2a2a;
+  font-size: 1.12rem;
+}
+
+.calendar-config-tournament-meta p {
+  margin: 2px 0;
+  color: #404040;
+  font-size: 0.94rem;
+}
+
+.calendar-config-form-card {
+  margin-top: 14px;
+  border: 1px solid #c8c8c8;
+  background: #f9f9f9;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 10px 22px rgba(35, 35, 35, 0.08);
+}
+
+.calendar-config-bulk-card {
+  margin-top: 14px;
+  border: 1px solid #c8c8c8;
+  background: #f9f9f9;
+  border-radius: 12px;
+  padding: 14px 16px;
+  box-shadow: 0 10px 22px rgba(35, 35, 35, 0.08);
+}
+
+.calendar-config-bulk-card h2 {
+  margin: 0 0 10px;
+  font-size: 1.02rem;
+  color: #2a2a2a;
+}
+
+.calendar-config-form-card h2 {
+  margin: 0 0 12px;
+  font-size: 1.12rem;
+  color: #2a2a2a;
+}
+
+.calendar-config-bulk-panel {
+  margin-bottom: 14px;
+}
+
+.calendar-config-bulk-panel details {
+  border: 1px solid #d8d8d8;
+  border-radius: 10px;
+  background: #f5f7fa;
+  padding: 8px 10px;
+}
+
+.calendar-config-bulk-panel summary {
+  cursor: pointer;
+  color: #304b65;
+  font-size: 0.92rem;
+  font-weight: 700;
+  user-select: none;
+}
+
+.calendar-config-bulk-panel summary::marker {
+  color: #304b65;
+}
+
+.calendar-config-bulk-subtitle {
+  margin: 8px 0 0;
+  color: #5c6975;
+  font-size: 0.84rem;
+}
+
+.calendar-config-bulk-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+  justify-content:space-around;
+}
+
+.calendar-config-bulk-btn {
+  border: 0;
+  background: #4b5b6c;
+  color: #fff;
+  width: 30%;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-weight: 700;
+  font-size: 0.78rem;
+  letter-spacing: 0.2px;
+  cursor: pointer;
+  transition: transform 0.15s ease, filter 0.2s ease;
+}
+
+.calendar-config-bulk-btn:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.06);
+}
+
+.calendar-config-bulk-import-btn {
+  background: #365f87;
+}
+
+.calendar-config-hidden-input {
+  display: none;
+}
+
+.calendar-config-form {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.calendar-config-form label {
+  display: grid;
+  gap: 6px;
+  color: #3d3d3d;
+  font-weight: 700;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.calendar-config-form input,
+.calendar-config-form select {
+  border: 1px solid #b7b7b7;
+  border-radius: 10px;
+  padding: 10px 11px;
+  font-size: 0.94rem;
+  background: #fff;
+  color: #2e2e2e;
+}
+
+.calendar-config-form input:focus,
+.calendar-config-form select:focus {
+  outline: none;
+  border-color: #2f5f8c;
+  box-shadow: 0 0 0 3px rgba(47, 95, 140, 0.15);
+}
+
+.calendar-config-spacer {
+  visibility: hidden;
+}
+
+.calendar-config-form-actions {
+  align-self: end;
+  display: flex;
+  gap: 8px;
+}
+
+.calendar-config-form button {
+  align-self: end;
+  border: 0;
+  background: #2f5f8c;
+  color: #fff;
+  border-radius: 10px;
+  padding: 10px 16px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  cursor: pointer;
+  transition: transform 0.15s ease, filter 0.2s ease;
+}
+
+.calendar-config-form button:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.06);
+}
+
+.calendar-config-cancel-btn {
+  background: #8e8e8e !important;
+}
+
+.calendar-config-cancel-btn:hover {
+  background: #707070 !important;
+}
+
+.calendar-config-error {
+  margin: 10px 0 0;
+  color: #a52828;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.calendar-config-hint {
+  margin: 10px 0 0;
+  color: #3f3f3f;
+  font-size: 0.9rem;
+}
+
+.calendar-config-team-previews {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.calendar-config-team-preview {
+  border: 1px solid #cacaca;
+  border-radius: 10px;
+  background: #fff;
+  padding: 10px;
+}
+
+.calendar-config-team-preview > span {
+  font-size: 0.8rem;
+  color: #646464;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.calendar-config-team-preview p {
+  margin: 7px 0 0;
+  color: #6d6d6d;
+  font-size: 0.9rem;
+}
+
+.calendar-team-chip {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.calendar-team-chip img {
+  width: 42px;
+  height: 42px;
+  object-fit: fill;
+  object-position: center;
+  border-radius: 50%;
+  box-sizing: border-box;
+}
+
+.calendar-team-chip strong {
+  font-size: 0.96rem;
+  color: #252525;
+}
+
+.calendar-config-list {
+  margin-top: 22px;
+}
+
+.calendar-config-empty {
+  border: 1px dashed #a1a1a1;
+  border-radius: 10px;
+  padding: 26px;
+  text-align: center;
+  color: #505050;
+  background: #fbfbfb;
+}
+
+.calendar-day-block {
+  margin-bottom: 20px;
+}
+
+.calendar-day-block h3 {
+  margin: 0 0 12px;
+  color: #303030;
+  font-size: 1.35rem;
+  font-weight: 800;
+}
+
+.calendar-game-list {
+  display: grid;
+  gap: 12px;
+}
+
+.calendar-game-card {
+  border: 1px solid #8f8f8f;
+  background: #ededed;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 8px 20px rgba(43, 43, 43, 0.1);
+}
+
+.calendar-game-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  background: #3b3434;
+  color: #f8f8f8;
+  padding: 9px 13px;
+}
+
+.calendar-game-top p {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-align: right;
+}
+
+.calendar-game-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.calendar-game-actions span {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.calendar-game-place {
+  padding: 9px 13px;
+  border-bottom: 1px solid #cccccc;
+  color: #3d3d3d;
+  font-size: 0.96rem;
+  font-weight: 600;
+}
+
+.calendar-game-team-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 13px;
+  border-bottom: 1px solid #cfcfcf;
+}
+
+.calendar-game-team-row span {
+  font-size: 0.98rem;
+  color: #262626;
+}
+
+.calendar-game-team-name {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.calendar-game-team-name img {
+  width: 40px;
+  height: 40px;
+  object-position: center;
+  border-radius: 50%;
+  box-sizing: border-box;
+}
+
+.calendar-game-team-row strong {
+  font-size: 0.98rem;
+  color: #262626;
+}
+
+.calendar-game-footer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 9px 13px;
+  min-height: 52px;
+  box-sizing: border-box;
+}
+
+.calendar-game-buttons {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 220px;
+}
+
+.calendar-game-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1 1 0;
+  border: 0;
+  border-radius: 9px;
+  padding: 8px 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.25px;
+  transition: transform 0.15s ease, filter 0.15s ease, box-shadow 0.15s ease;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.16);
+  cursor: pointer;
+}
+
+.calendar-game-action-btn:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.05);
+}
+
+.calendar-game-action-btn:active {
+  transform: translateY(0);
+}
+
+.calendar-game-edit {
+  background: linear-gradient(135deg, #386184, #2f4f6b);
+  color: #fff;
+}
+
+.calendar-game-edit:hover {
+  background: linear-gradient(135deg, #3f6d94, #365978);
+}
+
+.calendar-game-delete {
+  background: linear-gradient(135deg, #b63f3f, #943131);
+  color: #fff;
+}
+
+.calendar-game-delete:hover {
+  background: linear-gradient(135deg, #c34949, #a03737);
+}
+
+@media (max-width: 920px) {
+  .calendar-config-form {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .calendar-config-spacer {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .calendar-config-tournament-content {
+    align-items: flex-start;
+  }
+
+  .calendar-config-tournament-content img,
+  .calendar-config-tournament-placeholder {
+    width: 72px;
+    height: 72px;
+  }
+
+  .calendar-config-form {
+    grid-template-columns: 1fr;
+  }
+
+  .calendar-config-team-previews {
+    grid-template-columns: 1fr;
+  }
+
+  .calendar-day-block h3 {
+    font-size: 1.15rem;
+  }
+
+  .calendar-game-top {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .calendar-game-top p {
+    text-align: left;
+  }
+
+  .calendar-game-buttons {
+    width: 100%;
+  }
+
+  .calendar-config-form-actions {
+    width: 100%;
+  }
+
+  .calendar-config-form-actions button {
+    flex: 1;
+  }
+
+  .calendar-config-bulk-btn {
+    width: 100%;
+  }
+}

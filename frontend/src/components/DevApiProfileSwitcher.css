@@ -1,0 +1,502 @@
+/**
+ * Selector de perfil API (solo desarrollo), embebido en menú de usuario o barra Login.
+ */
+
+
+.dev-api-switcher-menu {
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+
+/* ─── Variante panel (dropdown perfil escritorio / bloque cuenta móvil) ─── */
+
+.dev-api-switcher-menu--panel {
+  border-top: 1px solid var(--hera-panel-divider);
+  background-color: var(--hera-strip-bg);
+  color: var(--hera-navbar-text);
+}
+
+/* Panel dentro del dropdown de cuenta: mismo ritmo que «Cerrar sesión» */
+.user-profile-panel .dev-api-switcher-menu--panel .dev-api-switcher-menu__head {
+  padding: 8px 12px 4px;
+}
+
+.user-profile-panel .dev-api-switcher-menu--panel .dev-api-switcher-menu__title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.85;
+}
+
+.user-profile-panel .dev-api-switcher-menu--panel .dev-api-switcher-menu__warning {
+  padding: 6px 12px;
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.user-profile-panel .dev-api-switcher-menu--panel .dev-api-switcher-menu__option-list.dev-api-switcher__options {
+  flex-direction: row;
+  gap: 6px;
+  padding: 6px 12px 8px;
+}
+
+.user-profile-panel .dev-api-switcher-menu--panel .dev-api-switcher__option {
+  flex: 1;
+  min-height: unset;
+  padding: 7px 8px;
+  gap: 6px;
+  border-radius: 6px;
+  border-width: 1px;
+}
+
+.user-profile-panel .dev-api-switcher-menu--panel .dev-api-switcher__option-icon {
+  margin-top: 0;
+}
+
+.user-profile-panel .dev-api-switcher-menu--panel .dev-api-switcher__option-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.user-profile-panel .dev-api-switcher-menu--panel .dev-api-switcher__option-title {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.user-profile-panel .dev-api-switcher-menu--panel .dev-api-switcher__option-desc {
+  display: none;
+}
+
+.user-profile-panel .dev-api-switcher-menu--panel .dev-api-switcher__option-dot {
+  width: 7px;
+  height: 7px;
+  margin-top: 0;
+  border-width: 1px;
+}
+
+.user-profile-panel .dev-api-switcher-menu--panel .dev-api-switcher-menu__active-line {
+  padding: 6px 12px 8px;
+  font-size: 10px;
+}
+
+
+.dev-api-switcher-menu__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px 8px;
+}
+
+
+.dev-api-switcher-menu__title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--hera-navbar-text);
+  letter-spacing: -0.01em;
+}
+
+
+.dev-api-switcher-menu__badge {
+  flex-shrink: 0;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: rgba(56, 189, 248, 0.2);
+  color: var(--hera-nav-link-fg);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+}
+
+
+.dev-api-switcher-menu__warning {
+  margin: 0;
+  padding: 8px 14px;
+  font-size: 11px;
+  color: var(--hera-navbar-text);
+  opacity: 0.9;
+  background: rgba(245, 158, 11, 0.12);
+  border-top: 1px solid var(--hera-panel-divider);
+  border-bottom: 1px solid var(--hera-panel-divider);
+}
+
+
+.dev-api-switcher-menu .dev-api-switcher-menu__option-list.dev-api-switcher__options {
+  gap: 6px;
+  padding: 10px 14px;
+  margin: 0;
+}
+
+
+.dev-api-switcher-menu__active-line {
+  margin: 0;
+  padding: 10px 14px 12px;
+  font-size: 12px;
+  color: var(--hera-text-muted);
+  border-top: 1px solid var(--hera-panel-divider);
+}
+
+
+.dev-api-switcher-menu__active-value {
+  font-weight: 700;
+  color: var(--hera-navbar-text);
+}
+
+
+.dev-api-switcher-menu .dev-api-switcher__option {
+  border-color: var(--hera-panel-border);
+  background: var(--hera-panel-bg);
+  color: var(--hera-navbar-text);
+  align-items: center;
+}
+
+
+.dev-api-switcher-menu .dev-api-switcher__option:hover {
+  background: var(--hera-menu-item-hover-bg);
+  color: var(--hera-menu-item-hover-fg);
+  border-color: var(--hera-panel-border);
+}
+
+
+.dev-api-switcher-menu .dev-api-switcher__option--active {
+  border-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.12);
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.15);
+}
+
+
+.dev-api-switcher-menu .dev-api-switcher__option-title {
+  color: inherit;
+}
+
+
+.dev-api-switcher-menu .dev-api-switcher__option-desc {
+  color: var(--hera-text-muted);
+}
+
+
+/* ─── Variante compacta (junto a Login sin menú cuenta) ─── */
+
+.dev-api-switcher-menu--compact {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  padding: 0;
+  margin: 0;
+  max-width: 220px;
+}
+
+
+.dev-api-switcher-menu--compact .dev-api-switcher-menu__compact-hint {
+  display: none;
+}
+
+
+.dev-api-switcher-menu--compact .dev-api-switcher-menu__option-list.dev-api-switcher__options {
+  flex-direction: row;
+  flex-wrap: nowrap;
+  gap: 8px;
+  padding: 0;
+  align-items: stretch;
+}
+
+
+.navbar-right .dev-api-switcher-menu--compact,
+.navbar-right_noauth .dev-api-switcher-menu--compact {
+  margin-right: 4px;
+  max-width: none;
+}
+
+
+.navbar-right .dev-api-switcher-menu--compact .dev-api-switcher-menu__compact-hint,
+.navbar-right_noauth .dev-api-switcher-menu--compact .dev-api-switcher-menu__compact-hint {
+  display: none;
+}
+
+
+.navbar-right .dev-api-switcher-menu--compact .dev-api-switcher__options,
+.navbar-right_noauth .dev-api-switcher-menu--compact .dev-api-switcher__options {
+  gap: 6px;
+}
+
+/* Barra superior: solo texto, altura acotada a la navbar (35px) */
+.dev-api-switcher-menu--inline {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  max-height: 28px;
+  margin: 0 8px 0 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.navbar-right .dev-api-switcher-menu--inline,
+.navbar-right_noauth .dev-api-switcher-menu--inline {
+  flex-shrink: 0;
+}
+
+.dev-api-switcher__pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 26px;
+  max-height: 26px;
+  margin: 0;
+  padding: 0 9px;
+  box-sizing: border-box;
+  border: 1px solid var(--hera-panel-border, rgba(255, 255, 255, 0.22));
+  border-radius: 5px;
+  background: var(--hera-navbar-ghost-hover, rgba(255, 255, 255, 0.06));
+  color: var(--hera-navbar-text);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.dev-api-switcher__pill:hover {
+  background: var(--hera-menu-item-hover-bg);
+  color: var(--hera-menu-item-hover-fg, var(--hera-navbar-text));
+  border-color: var(--hera-nav-link-fg, #38bdf8);
+}
+
+.dev-api-switcher__pill:focus-visible {
+  outline: 2px solid rgba(59, 130, 246, 0.55);
+  outline-offset: 0;
+}
+
+.dev-api-switcher__pill--active {
+  border-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.2);
+  color: var(--hera-navbar-text);
+}
+
+.dev-api-switcher__pill--active:hover {
+  background: rgba(59, 130, 246, 0.28);
+  border-color: #3b82f6;
+}
+
+/* Compact (móvil / login): solo etiquetas */
+.dev-api-switcher__option--text-only {
+  min-height: unset;
+  justify-content: center;
+  padding: 8px 12px;
+}
+
+.dev-api-switcher__option--text-only .dev-api-switcher__option-title {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+
+.dev-api-switcher__option--compact {
+  flex: 1;
+  min-height: unset;
+  height: auto;
+  padding: 6px 8px;
+  align-items: center;
+}
+
+
+.dev-api-switcher__option--compact .dev-api-switcher__option-body {
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+}
+
+
+.dev-api-switcher__option--compact .dev-api-switcher__option-title {
+  font-size: 12px;
+}
+
+
+.dev-api-switcher__option--compact .dev-api-switcher__option-dot {
+  margin-top: 0;
+}
+
+
+/* Lista móvil: bloque cuenta */
+.mobile-nav-links .dev-api-switcher-menu--compact,
+.noauth-mobile-nav-links .dev-api-switcher-menu--compact {
+  padding: 10px 20px 14px;
+  max-width: none;
+  background-color: var(--hera-strip-bg);
+  border-bottom: 1px solid var(--hera-panel-divider);
+}
+
+.mobile-nav-links .dev-api-switcher-menu--compact .dev-api-switcher__options,
+.noauth-mobile-nav-links .dev-api-switcher-menu--compact .dev-api-switcher__options {
+  flex-direction: row;
+  gap: 8px;
+}
+
+.mobile-nav-links .dev-api-switcher-menu--compact .dev-api-switcher__option,
+.noauth-mobile-nav-links .dev-api-switcher-menu--compact .dev-api-switcher__option {
+  flex: 1;
+  min-height: 36px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border-width: 1px;
+}
+
+.mobile-nav-links .dev-api-switcher-menu--compact .dev-api-switcher__option-title,
+.noauth-mobile-nav-links .dev-api-switcher-menu--compact .dev-api-switcher__option-title {
+  font-size: 12px;
+}
+
+.mobile-nav-links .dev-api-switcher-menu--compact .dev-api-switcher__option-desc,
+.noauth-mobile-nav-links .dev-api-switcher-menu--compact .dev-api-switcher__option-desc {
+  display: none;
+}
+
+
+.mobile-nav-links .dev-api-switcher-menu--compact .dev-api-switcher-menu__compact-hint,
+.noauth-mobile-nav-links .dev-api-switcher-menu--compact .dev-api-switcher-menu__compact-hint {
+  display: none;
+}
+
+
+/* Página solo login (sin navbar) */
+
+.login-page-dev-api-slot {
+  position: sticky;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  margin-top: 24px;
+  background: var(--hera-panel-bg);
+  border-top: 1px solid var(--hera-panel-border);
+}
+
+
+.login-page-dev-api-slot .dev-api-switcher-menu--compact {
+  max-width: 100%;
+}
+
+
+.login-page-dev-api-slot .dev-api-switcher-menu--compact .dev-api-switcher-menu__compact-hint {
+  display: none;
+}
+
+
+.login-page-dev-api-slot .dev-api-switcher__options {
+  gap: 10px !important;
+}
+
+
+/* ─── Opciones compartidas (panel + compact) ─── */
+
+.dev-api-switcher-menu__option-list.dev-api-switcher__options {
+  display: flex;
+  flex-direction: column;
+}
+
+
+.dev-api-switcher__option {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 2px solid #e4e4e7;
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+  min-height: 55px;
+  box-sizing: border-box;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+
+.dev-api-switcher__option:focus-visible {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+}
+
+
+.dev-api-switcher__option-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  margin-top: 2px;
+  color: #3f3f46;
+}
+
+
+.dev-api-switcher__option--compact .dev-api-switcher__option-icon {
+  margin-top: 0;
+}
+
+
+.dev-api-switcher-menu .dev-api-switcher__option-icon {
+  color: inherit;
+}
+
+
+.dev-api-switcher__option-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+
+.dev-api-switcher__option-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #18181b;
+}
+
+
+.dev-api-switcher__option-desc {
+  font-size: 11px;
+  color: #71717a;
+  line-height: 1.35;
+}
+
+
+.dev-api-switcher__option-dot {
+  flex-shrink: 0;
+  width: 10px;
+  height: 10px;
+  margin-top: 6px;
+  border-radius: 50%;
+  border: 2px solid #d4d4d8;
+  background: #fff;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+
+.dev-api-switcher__option-dot--local.dev-api-switcher__option-dot--on {
+  background: #22c55e;
+  border-color: #16a34a;
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.35);
+}
+
+
+.dev-api-switcher__option-dot--test.dev-api-switcher__option-dot--on {
+  background: #f59e0b;
+  border-color: #d97706;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.35);
+}
