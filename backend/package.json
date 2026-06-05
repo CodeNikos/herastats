@@ -9,6 +9,8 @@
     "dev:test": "cross-env ENV_FILE=.env.test nodemon src/server.js",
     "kill-port:test": "npx --yes kill-port 5001",
     "test": "cross-env NODE_ENV=test jest --runInBand --forceExit",
+    "db:procedures": "node scripts/apply-procedures.js",
+    "db:procedures:extract": "node scripts/extract-procedures.js",
     "security:check": "node ../scripts/check-secrets.js",
     "deploy:verify": "node ../scripts/verify-deploy.js"
   },
