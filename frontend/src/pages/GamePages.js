@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import './GamesPages.css';
 import GamePhaseClockDisplay from '../components/GamePhaseClockDisplay';
@@ -21,6 +21,12 @@ import {
   isGameFinishedState,
   phaseHmsToSeconds
 } from '../utils/gamePhaseClock';
+import { isGameOngoingState, isGameUpcomingState } from '../utils/gameEstado';
+import {
+  HERASTATS_GAMES_CHANGED_STORAGE,
+  HERASTATS_TOURNAMENT_COHERENCE,
+  normalizeTournamentIdForCoherence
+} from '../utils/tournamentSync';
 import { goalTotalsFromTimelineEvents } from '../utils/goalTotalsFromTimeline';
 
 /** Estado del partido con variantes habituales de la API ({estado}/{Estado}). */
@@ -630,7 +636,11 @@ function GamePages() {
   const [spiritManualSaving, setSpiritManualSaving] = useState(false);
   const [spiritManualFormError, setSpiritManualFormError] = useState('');
 
-  const gameFinished = useMemo(() => isGameFinishedState(gameEstadoRaw(gameRow)), [gameRow]);
+  const gameEstado = useMemo(() => gameEstadoRaw(gameRow), [gameRow]);
+  const gameFinished = useMemo(() => isGameFinishedState(gameEstado), [gameEstado]);
+  const gameOngoing = useMemo(() => isGameOngoingState(gameEstado), [gameEstado]);
+  const gameUpcoming = useMemo(() => isGameUpcomingState(gameEstado), [gameEstado]);
+  const rosterLoadKeyRef = useRef('');
 
   const { tiempo } = useGamePhaseClock({
     events: gameEvents,
@@ -647,7 +657,7 @@ function GamePages() {
     gameIdParam,
     {
       enabled: Boolean(tournamentIdParam && gameIdParam),
-      refetchIntervalMs: 4000
+      refetchIntervalMs: gameOngoing ? 4000 : 0
     }
   );
 
@@ -698,7 +708,15 @@ function GamePages() {
           (g) => Number(g.game_id) === Number(gameIdParam)
         );
         if (found) {
-          setGameRow((prev) => (prev ? { ...prev, ...found } : found));
+          setGameRow((prev) => {
+            if (!prev) return found;
+            const merged = { ...prev, ...found };
+            const estadoUnchanged = String(gameEstadoRaw(prev) ?? '') === String(gameEstadoRaw(found) ?? '');
+            const teamsUnchanged =
+              Number(prev.local) === Number(found.local) && Number(prev.visitor) === Number(found.visitor);
+            if (estadoUnchanged && teamsUnchanged) return prev;
+            return merged;
+          });
         }
       }
     } catch (e) {
@@ -767,15 +785,80 @@ function GamePages() {
   useEffect(() => {
     loadGameEvents();
     loadGamePlayerRank();
-    // Partido finalizado: eventos y ranking ya no cambian. Sin esta guarda, el polling cada 4 s
-    // reescribe gameRow/eventos/ranking con referencias nuevas y hace parpadear la pestaña Player Stats.
-    if (gameFinished) return undefined;
+    // Solo en curso: eventos y ranking cambian en vivo. Upcoming/finished no necesitan polling
+    // (evita parpadeo en Player Stats por recargas de roster cada pocos segundos).
+    if (!gameOngoing) return undefined;
     const id = setInterval(() => {
       loadGameEvents();
       loadGamePlayerRank();
     }, 4000);
     return () => clearInterval(id);
-  }, [loadGameEvents, loadGamePlayerRank, gameFinished]);
+  }, [loadGameEvents, loadGamePlayerRank, gameOngoing]);
+
+  /** Mismo torneo: recargar al finalizar/anotar desde live sin polling constante en Upcoming. */
+  useEffect(() => {
+    if (!tournamentIdParam) return undefined;
+    const tidNorm = normalizeTournamentIdForCoherence(tournamentIdParam);
+    if (!tidNorm) return undefined;
+
+    const refresh = () => {
+      loadGameEvents();
+      loadGamePlayerRank();
+    };
+
+    const onCoherence = (event) => {
+      if (!event?.detail) return;
+      if (normalizeTournamentIdForCoherence(event.detail.tournamentId) !== tidNorm) return;
+      refresh();
+    };
+
+    const onStorage = (e) => {
+      if (e.key !== HERASTATS_GAMES_CHANGED_STORAGE || !e.newValue) return;
+      try {
+        const p = JSON.parse(e.newValue);
+        if (p && normalizeTournamentIdForCoherence(p.tournamentId) === tidNorm) refresh();
+      } catch (_) {
+        /* ignorar */
+      }
+    };
+
+    window.addEventListener(HERASTATS_TOURNAMENT_COHERENCE, onCoherence);
+    window.addEventListener('storage', onStorage);
+    return () => {
+      window.removeEventListener(HERASTATS_TOURNAMENT_COHERENCE, onCoherence);
+      window.removeEventListener('storage', onStorage);
+    };
+  }, [tournamentIdParam, loadGameEvents, loadGamePlayerRank]);
+
+  /** Upcoming: comprobar cada 30 s si el partido pasó a en curso (sin recargar roster en cada tick). */
+  useEffect(() => {
+    if (!gameUpcoming || !tournamentIdParam || !gameIdParam) return undefined;
+
+    const checkEstado = async () => {
+      try {
+        const res = await configService.getGames(tournamentIdParam);
+        if (!res?.success) return;
+        const found = (res.data?.games || []).find((g) => Number(g.game_id) === Number(gameIdParam));
+        if (!found) return;
+        setGameRow((prev) => {
+          if (!prev) return found;
+          const prevEstado = String(gameEstadoRaw(prev) ?? '');
+          const nextEstado = String(gameEstadoRaw(found) ?? '');
+          if (prevEstado === nextEstado) return prev;
+          return { ...prev, ...found };
+        });
+        if (!isGameUpcomingState(gameEstadoRaw(found))) {
+          loadGameEvents();
+          loadGamePlayerRank();
+        }
+      } catch (_) {
+        /* ignorar */
+      }
+    };
+
+    const id = setInterval(checkEstado, 30000);
+    return () => clearInterval(id);
+  }, [gameUpcoming, tournamentIdParam, gameIdParam, loadGameEvents, loadGamePlayerRank]);
 
   useEffect(() => {
     const loadGame = async () => {
@@ -894,11 +977,33 @@ function GamePages() {
   useEffect(() => {
     const loadPlayers = async () => {
       if (!gameRow || !tournamentIdParam) {
+        rosterLoadKeyRef.current = '';
         setRosterHome([]);
         setRosterAway([]);
         return;
       }
-      setPlayersLoading(true);
+      const fkLocal = gameRow.local != null ? Number(gameRow.local) : null;
+      const fkVisitor = gameRow.visitor != null ? Number(gameRow.visitor) : null;
+      const localId =
+        gamePageSlotResolution?.localRosterId != null &&
+        Number.isFinite(Number(gamePageSlotResolution.localRosterId)) &&
+        Number(gamePageSlotResolution.localRosterId) > 0
+          ? Number(gamePageSlotResolution.localRosterId)
+          : Number.isFinite(fkLocal) && fkLocal > 0
+            ? fkLocal
+            : null;
+      const visitorId =
+        gamePageSlotResolution?.visitorRosterId != null &&
+        Number.isFinite(Number(gamePageSlotResolution.visitorRosterId)) &&
+        Number(gamePageSlotResolution.visitorRosterId) > 0
+          ? Number(gamePageSlotResolution.visitorRosterId)
+          : Number.isFinite(fkVisitor) && fkVisitor > 0
+            ? fkVisitor
+            : null;
+      const rosterKey = `${tournamentIdParam}:${localId ?? ''}:${visitorId ?? ''}`;
+      const isNewRoster = rosterLoadKeyRef.current !== rosterKey;
+      rosterLoadKeyRef.current = rosterKey;
+      if (isNewRoster) setPlayersLoading(true);
       setPlayersError('');
       try {
         const res = await configService.getPlayers(tournamentIdParam);
@@ -909,24 +1014,6 @@ function GamePages() {
           return;
         }
         const all = res.data?.players || [];
-        const fkLocal = gameRow.local != null ? Number(gameRow.local) : null;
-        const fkVisitor = gameRow.visitor != null ? Number(gameRow.visitor) : null;
-        const localId =
-          gamePageSlotResolution?.localRosterId != null &&
-          Number.isFinite(Number(gamePageSlotResolution.localRosterId)) &&
-          Number(gamePageSlotResolution.localRosterId) > 0
-            ? Number(gamePageSlotResolution.localRosterId)
-            : Number.isFinite(fkLocal) && fkLocal > 0
-              ? fkLocal
-              : null;
-        const visitorId =
-          gamePageSlotResolution?.visitorRosterId != null &&
-          Number.isFinite(Number(gamePageSlotResolution.visitorRosterId)) &&
-          Number(gamePageSlotResolution.visitorRosterId) > 0
-            ? Number(gamePageSlotResolution.visitorRosterId)
-            : Number.isFinite(fkVisitor) && fkVisitor > 0
-              ? fkVisitor
-              : null;
         const byTeam = (tid) => {
           if (tid == null || !Number.isFinite(tid)) return [];
           return all
@@ -940,7 +1027,7 @@ function GamePages() {
         setRosterHome([]);
         setRosterAway([]);
       } finally {
-        setPlayersLoading(false);
+        if (isNewRoster) setPlayersLoading(false);
       }
     };
     loadPlayers();
