@@ -37,6 +37,36 @@ class TournamentConfig {
     }
   }
 
+  static async findByMemberUserId(userId) {
+    try {
+      const query = `
+        SELECT DISTINCT t.torneo_id, t.name, t.year, t.country, t.location, t.image_url, t.created_by, t.created_at,
+          (SELECT MIN(g.game_date) FROM game g WHERE g.torneo_id = t.torneo_id) AS first_game_date
+        FROM torneo t
+        INNER JOIN tournament_members tm ON tm.torneo_id = t.torneo_id
+        WHERE tm.user_id = $1
+        ORDER BY t.created_at DESC
+      `;
+      const result = await pool.query(query, [userId]);
+      return result.rows;
+    } catch (error) {
+      console.error('Error en TournamentConfig.findByMemberUserId:', error);
+      throw error;
+    }
+  }
+
+  static async findAccessibleByUser({ userId, userEmail }) {
+    const owned = await this.findByUserEmail(userEmail);
+    const memberRows = await this.findByMemberUserId(userId);
+    const byId = new Map();
+    for (const row of [...owned, ...memberRows]) {
+      byId.set(row.torneo_id, row);
+    }
+    return Array.from(byId.values()).sort(
+      (a, b) => new Date(b.created_at) - new Date(a.created_at)
+    );
+  }
+
   static async findByUserEmail(userEmail) {
     try {
       const query = `

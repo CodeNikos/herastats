@@ -6,11 +6,12 @@ import { IoCalendarNumberSharp } from "react-icons/io5";
 import { MdGroups } from "react-icons/md";
 import { RiTeamFill } from "react-icons/ri";
 import { FaRunning } from "react-icons/fa";
-import { FaUsersCog, FaUserEdit  } from "react-icons/fa";
+import { FaUsersCog, FaUserEdit, FaUserPlus } from "react-icons/fa";
 import { useState, useRef, useEffect } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import ProfileEditModal from './ProfileEditModal';
+import AddUserModal from './AddUserModal';
 import ProfileAmbientToggle from './ProfileAmbientToggle';
 import { DevApiProfileMenuSection } from './DevApiProfileSwitcher';
 import { useDevApiSwitcherEligible } from '../hooks/useDevApiSwitcherEligible';
@@ -36,6 +37,7 @@ function Navbar({ tournamentId = null, hideAmbientToggle = false }) {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [profileMenuOpen, setProfileMenuOpen] = useState(false);
     const [profileEditOpen, setProfileEditOpen] = useState(false);
+    const [addUserOpen, setAddUserOpen] = useState(false);
     const profileMenuRef = useRef(null);
     const { isAuthenticated, logout, user } = useAuth();
     const { id: routeTournamentId } = useParams();
@@ -82,6 +84,7 @@ function Navbar({ tournamentId = null, hideAmbientToggle = false }) {
     const userIsSuperUser = isSuperuser(user);
     const userIsAdmin = isAdmin(user);
     const userIsAnotador = isAnotador(user);
+    const canInviteUsers = userIsSuperUser || userIsAdmin;
     const canSeeConfig = userIsAdmin || userIsSuperUser;
     const canSeeAnotaciones = userIsAdmin || userIsSuperUser || userIsAnotador;
     const roleLabel = roleLabelForUser(user);
@@ -235,6 +238,18 @@ return (
                             >
                                 Editar perfil
                             </button>
+                            {canInviteUsers && (
+                                <button
+                                    type="button"
+                                    className="mobile-link login-mobile mobile-profile-edit-btn"
+                                    onClick={() => {
+                                        setIsMobileMenuOpen(false);
+                                        setAddUserOpen(true);
+                                    }}
+                                >
+                                    Agregar usuario
+                                </button>
+                            )}
                             <a
                                 href={appPath('/')}
                                 className="mobile-link login-mobile"
@@ -309,6 +324,20 @@ return (
                                 <FaUserEdit size={20} />
                                 <span>Editar perfil</span>
                             </button>
+                            {canInviteUsers && (
+                                <button
+                                    type="button"
+                                    className="user-profile-logout-btn"
+                                    role="menuitem"
+                                    onClick={() => {
+                                        setProfileMenuOpen(false);
+                                        setAddUserOpen(true);
+                                    }}
+                                >
+                                    <FaUserPlus size={20} />
+                                    <span>Agregar usuario</span>
+                                </button>
+                            )}
 
                             <button
                                 type="button"
@@ -333,6 +362,11 @@ return (
          </div>
 
         <ProfileEditModal open={profileEditOpen} onClose={() => setProfileEditOpen(false)} />
+        <AddUserModal
+            open={addUserOpen}
+            onClose={() => setAddUserOpen(false)}
+            tournamentId={currentTournamentId ? Number(currentTournamentId) : null}
+        />
 
     </div>
 

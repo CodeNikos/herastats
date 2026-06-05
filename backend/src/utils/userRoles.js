@@ -1,12 +1,12 @@
 /**
  * Roles que reciben el listado completo de torneos (GET /config/tournament con sesión).
  */
-const TOURNAMENT_LIST_ALL_ROLES = new Set(['admin', 'superuser', 'anotador']);
+const TOURNAMENT_LIST_ALL_ROLES = new Set(['superuser']);
 
 /**
- * Pueden actuar como dueños en cualquier torneo (ver/editar funciones restringidas por created_by).
+ * Acceso de escritura global a cualquier torneo (sin membresía ni ser dueño).
  */
-const TOURNAMENT_GLOBAL_ACCESS_ROLES = new Set(['admin', 'superuser']);
+const TOURNAMENT_GLOBAL_ACCESS_ROLES = new Set(['superuser']);
 
 /**
  * Tras quitar espacios, guiones y guiones bajos debe coincidir con una clave canónica

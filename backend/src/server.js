@@ -14,6 +14,7 @@ const GameBracketLink = require('./models/GameBracketLink');
 const RankedCanvas = require('./models/RankedCanvas');
 const SpiritSurveyInvite = require('./models/SpiritSurveyInvite');
 const SpiritSurveyResponse = require('./models/SpiritSurveyResponse');
+const TournamentMember = require('./models/TournamentMember');
 
 const PORT = process.env.PORT || 5000;
 
@@ -26,6 +27,9 @@ const initializeTables = async () => {
 
     await TournamentConfig.createTable();
     console.log('Tabla de torneos inicializada');
+
+    await TournamentMember.createTable();
+    console.log('Tabla tournament_members inicializada');
 
     await Phase.createTable();
     console.log('Tabla de fases inicializada');

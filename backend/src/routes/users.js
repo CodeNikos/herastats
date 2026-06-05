@@ -10,11 +10,11 @@ const { authenticate, requireRole } = require('../middleware/auth');
 const router = express.Router();
 
 router.use(authenticate);
-router.use(requireRole('superuser'));
 
-router.get('/', listUsers);
 router.post('/', createUser);
-router.put('/:id', updateUserRole);
-router.delete('/:id', deleteUser);
+
+router.get('/', requireRole('superuser'), listUsers);
+router.put('/:id', requireRole('superuser'), updateUserRole);
+router.delete('/:id', requireRole('superuser'), deleteUser);
 
 module.exports = router;

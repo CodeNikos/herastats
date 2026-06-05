@@ -2,9 +2,11 @@ import './Noauth_Navbar.css';
 
 import { AiOutlineMenu, AiOutlineClose } from "react-icons/ai";
 import { TbUserHexagon, TbLogout, TbChevronDown } from "react-icons/tb";
-import { FaUserEdit } from "react-icons/fa";
+import { FaUserEdit, FaUserPlus } from "react-icons/fa";
 import { useAuth } from '../hooks/useAuth';
 import ProfileEditModal from './ProfileEditModal';
+import AddUserModal from './AddUserModal';
+import { isAdmin, isSuperuser } from '../utils/userRoles';
 import ProfileAmbientToggle from './ProfileAmbientToggle';
 import { DevApiProfileMenuSection } from './DevApiProfileSwitcher';
 import { useDevApiSwitcherEligible } from '../hooks/useDevApiSwitcherEligible';
@@ -26,6 +28,7 @@ function Noauth_Navbar({ showPublicNavLinks = true, hideAmbientToggle = false })
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [profileMenuOpen, setProfileMenuOpen] = useState(false);
     const [profileEditOpen, setProfileEditOpen] = useState(false);
+    const [addUserOpen, setAddUserOpen] = useState(false);
     const profileMenuRef = useRef(null);
     const { isAuthenticated, logout, user } = useAuth();
     const { id: routeTournamentId } = useParams();
@@ -41,6 +44,8 @@ function Noauth_Navbar({ showPublicNavLinks = true, hideAmbientToggle = false })
         displayFullName ||
         user?.email?.split('@')[0] ||
         (isUserAuthenticated ? 'Cuenta' : '');
+    const userIsSuperUser = isSuperuser(user);
+    const canInviteUsers = userIsSuperUser || isAdmin(user);
 
     useEffect(() => {
         if (!profileMenuOpen) return;
@@ -151,6 +156,18 @@ return (
                             >
                                 Editar perfil
                             </button>
+                            {canInviteUsers && (
+                                <button
+                                    type="button"
+                                    className="noauth-mobile-link noauth-login-mobile mobile-profile-edit-btn"
+                                    onClick={() => {
+                                        setIsMobileMenuOpen(false);
+                                        setAddUserOpen(true);
+                                    }}
+                                >
+                                    Agregar usuario
+                                </button>
+                            )}
                             <a
                                 href={appPath('/')}
                                 className="noauth-mobile-link noauth-login-mobile"
@@ -231,6 +248,20 @@ return (
                                 <FaUserEdit size={20} />
                                 <span>Editar perfil</span>
                             </button>
+                            {canInviteUsers && (
+                                <button
+                                    type="button"
+                                    className="user-profile-logout-btn"
+                                    role="menuitem"
+                                    onClick={() => {
+                                        setProfileMenuOpen(false);
+                                        setAddUserOpen(true);
+                                    }}
+                                >
+                                    <FaUserPlus size={20} />
+                                    <span>Agregar usuario</span>
+                                </button>
+                            )}
                             <button
                                 type="button"
                                 className="user-profile-logout-btn"
@@ -254,6 +285,11 @@ return (
          </div>
 
         <ProfileEditModal open={profileEditOpen} onClose={() => setProfileEditOpen(false)} />
+        <AddUserModal
+            open={addUserOpen}
+            onClose={() => setAddUserOpen(false)}
+            tournamentId={currentTournamentId ? Number(currentTournamentId) : null}
+        />
 
     </div>
 

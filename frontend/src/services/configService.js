@@ -20,8 +20,8 @@ export const configService = {
   /**
    * Obtener torneos. El backend decide según el token (si va en Authorization):
  * - Sin token: todos (catálogo público).
- * - admin / superuser / anotador: todos.
-   * - Otros usuarios autenticados: solo torneos creados por ellos (created_by).
+   * - superuser: todos.
+   * - admin / anotador: torneos asignados (created_by o tournament_members).
    */
   async getTournaments() {
     try {

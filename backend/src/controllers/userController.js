@@ -1,7 +1,9 @@
 const User = require('../models/User');
+const TournamentMember = require('../models/TournamentMember');
 const crypto = require('crypto');
 const { sendPasswordSetupRequest } = require('../services/passwordSetupService');
 const { normalizeRole } = require('../utils/userRoles');
+const { assertTournamentInviteAccess } = require('../services/tournamentAccess');
 
 const MANAGEABLE_ROLES = new Set(['admin', 'anotador']);
 
@@ -27,14 +29,30 @@ const listUsers = async (_req, res) => {
 
 const createUser = async (req, res) => {
   try {
-    const { email, role } = req.body;
+    const inviterRole = normalizeRole(req.user?.role);
+    if (inviterRole !== 'superuser' && inviterRole !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'No tienes permisos para invitar usuarios'
+      });
+    }
+
+    const { email, role, torneo_id: torneoIdRaw } = req.body;
     const normalizedEmail = String(email || '').trim().toLowerCase();
     const normalizedRole = role ? String(role).trim().toLowerCase() : 'anotador';
+    const torneoId = Number(torneoIdRaw);
 
     if (!normalizedEmail) {
       return res.status(400).json({
         success: false,
         message: 'Email es obligatorio'
+      });
+    }
+
+    if (!Number.isInteger(torneoId) || torneoId <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'torneo_id es obligatorio y debe ser un número válido'
       });
     }
 
@@ -45,11 +63,51 @@ const createUser = async (req, res) => {
       });
     }
 
+    const access = await assertTournamentInviteAccess(req, torneoId);
+    if (!access.ok) {
+      return res.status(access.status).json({
+        success: false,
+        message: access.message
+      });
+    }
+
     const existingUser = await User.findByEmail(normalizedEmail);
     if (existingUser) {
-      return res.status(400).json({
-        success: false,
-        message: 'El usuario ya existe'
+      if (normalizeRole(existingUser.role) === 'superuser') {
+        return res.status(400).json({
+          success: false,
+          message: 'No se puede asignar un superuser a un torneo'
+        });
+      }
+
+      const membership = await TournamentMember.add({
+        userId: existingUser.id,
+        torneoId,
+        invitedBy: req.user.id
+      });
+
+      if (!membership) {
+        return res.status(400).json({
+          success: false,
+          message: 'El usuario ya existe y ya tiene acceso a este torneo'
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: 'Usuario existente asignado al torneo',
+        data: {
+          user: {
+            id: existingUser.id,
+            email: existingUser.email,
+            role: normalizeRole(existingUser.role) || existingUser.role,
+            name: existingUser.name,
+            lname: existingUser.lname,
+            created_at: existingUser.created_at
+          },
+          membership,
+          password_setup_email_sent: false
+        }
       });
     }
 
@@ -58,6 +116,12 @@ const createUser = async (req, res) => {
       email: normalizedEmail,
       password: temporaryPassword,
       role: normalizedRole
+    });
+
+    await TournamentMember.add({
+      userId: created.id,
+      torneoId,
+      invitedBy: req.user.id
     });
 
     let mailResult = { skipped: true };
@@ -70,10 +134,11 @@ const createUser = async (req, res) => {
     return res.status(201).json({
       success: true,
       message: mailResult?.skipped
-        ? 'Usuario creado. SMTP no configurado: no se pudo enviar el correo para definir contraseña.'
-        : 'Usuario creado y solicitud de cambio de contraseña enviada al correo.',
+        ? 'Usuario creado y asignado al torneo. SMTP no configurado: no se pudo enviar el correo para definir contraseña.'
+        : 'Usuario creado, asignado al torneo y correo de activación enviado.',
       data: {
         user: created,
+        torneo_id: torneoId,
         password_setup_email_sent: !mailResult?.skipped
       }
     });

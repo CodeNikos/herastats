@@ -44,7 +44,7 @@ const LoginPage = () => {
   return (
     <main className="login-page-route">
       {isLoginMode ? (
-        <LoginForm onToggleMode={toggleMode} />
+        <LoginForm />
       ) : (
         <RegisterForm onToggleMode={toggleMode} />
       )}

@@ -51,6 +51,11 @@ const { uploadImage } = require('../controllers/uploadController');
 const { authenticate, optionalAuthenticate, requireRole } = require('../middleware/auth');
 const { requireTournamentAdmin, requireScorer } = require('../middleware/tournamentRbac');
 const { requireTournamentEditAccess } = require('../middleware/tournamentAccess');
+const {
+  listTournamentMembers,
+  addTournamentMember,
+  removeTournamentMember
+} = require('../controllers/tournamentMemberController');
 const { imageFileFilter, excelFileFilter } = require('../middleware/uploadFilters');
 
 const router = express.Router();
@@ -72,6 +77,9 @@ const uploadExcelMulter = multer({
 // Crear, actualizar y eliminar requieren autenticación
 router.post('/tournament', authenticate, requireTournamentAdmin, createTournament);
 // Rutas de fases (más específicas, deben ir antes de /tournament/:id)
+router.get('/tournament/:id/members', authenticate, requireTournamentEditAccess, listTournamentMembers);
+router.post('/tournament/:id/members', authenticate, requireTournamentEditAccess, addTournamentMember);
+router.delete('/tournament/:id/members/:userId', authenticate, requireTournamentEditAccess, removeTournamentMember);
 router.get('/tournament/:id/phases', getPhases);
 router.post('/tournament/:id/phases', authenticate, requireTournamentAdmin, requireTournamentEditAccess, savePhases);
 // Rutas de equipos

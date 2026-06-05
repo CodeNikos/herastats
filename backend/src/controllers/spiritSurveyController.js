@@ -4,7 +4,6 @@ const SpiritSurveyInvite = require('../models/SpiritSurveyInvite');
 const SpiritSurveyResponse = require('../models/SpiritSurveyResponse');
 const TournamentConfig = require('../models/TournamentConfig');
 const { hashSpiritSurveyToken } = require('../utils/spiritSurveyToken');
-const { hasGlobalTournamentAccess } = require('../utils/userRoles');
 const { assertTournamentEditAccess } = require('../services/tournamentAccess');
 
 function isFinishedEstadoForSpirit(estado) {
@@ -372,23 +371,10 @@ const postSpiritSurveyManual = async (req, res) => {
 
 const getTournamentSpiritStats = async (req, res) => {
   try {
-    const userEmail = req.user?.email;
-    const userRole = req.user?.role;
-    if (!userEmail) {
-      return res.status(401).json({ success: false, message: 'Usuario no autenticado' });
-    }
     const tournamentId = parseInt(req.params.id, 10);
-    if (!Number.isFinite(tournamentId) || tournamentId <= 0) {
-      return res.status(400).json({ success: false, message: 'ID de torneo inválido' });
-    }
-    const tournament = await TournamentConfig.findById(tournamentId);
-    if (!tournament) {
-      return res.status(404).json({ success: false, message: 'Torneo no encontrado' });
-    }
-    const isOwner =
-      String(tournament.created_by || '').toLowerCase() === String(userEmail).toLowerCase();
-    if (!isOwner && !hasGlobalTournamentAccess(userRole)) {
-      return res.status(403).json({ success: false, message: 'No autorizado para este torneo' });
+    const access = await assertTournamentEditAccess(req, tournamentId);
+    if (!access.ok) {
+      return res.status(access.status).json({ success: false, message: access.message });
     }
 
     const divisionRaw = req.query?.division;

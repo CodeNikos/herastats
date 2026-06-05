@@ -1,5 +1,6 @@
 const pool = require('../config/database');
 const TournamentConfig = require('../models/TournamentConfig');
+const TournamentMember = require('../models/TournamentMember');
 const Phase = require('../models/Phase');
 const Team = require('../models/Team');
 const Player = require('../models/Player');
@@ -129,6 +130,14 @@ const createTournament = async (req, res) => {
     // Crear la configuración del torneo
     const newTournament = await TournamentConfig.create(configData);
 
+    if (req.user?.id) {
+      await TournamentMember.add({
+        userId: req.user.id,
+        torneoId: newTournament.torneo_id,
+        invitedBy: null
+      });
+    }
+
     res.status(201).json({
       success: true,
       message: 'Configuración del torneo guardada exitosamente',
@@ -183,18 +192,17 @@ const createTournament = async (req, res) => {
   }
 };
 
-/** Roles que listan todos los torneos: ver `utils/userRoles.js` (`admin`, `superuser`, `anotador`). */
-
 /**
  * Obtener torneos:
  * - Sin sesión: todos (vista pública).
- * - admin / superuser / anotador: todos (gestión o anotación en cualquier torneo).
- * - Otros roles autenticados: solo torneos donde created_by = su email.
+ * - superuser: todos.
+ * - admin / anotador: dueños (created_by) + torneos asignados en tournament_members.
  * GET /api/config/tournament
  */
 const getTournaments = async (req, res) => {
   try {
     const userEmail = req.user?.email;
+    const userId = req.user?.id;
     const role = req.user?.role;
 
     let tournaments;
@@ -203,7 +211,10 @@ const getTournaments = async (req, res) => {
     } else if (canListAllTournaments(role)) {
       tournaments = await TournamentConfig.findAll();
     } else {
-      tournaments = await TournamentConfig.findByUserEmail(userEmail);
+      tournaments = await TournamentConfig.findAccessibleByUser({
+        userId,
+        userEmail
+      });
     }
 
     res.json({

@@ -13,7 +13,7 @@ const LoginPage = () => {
     <div>
       <div>
         {isLoginMode ? (
-          <LoginForm onToggleMode={toggleMode} />
+          <LoginForm />
         ) : (
           <RegisterForm onToggleMode={toggleMode} />
         )}

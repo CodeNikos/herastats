@@ -3,18 +3,23 @@ import { Navigate } from 'react-router-dom';
 import Navbar from '../components/navbar';
 import { useAuth } from '../hooks/useAuth';
 import { usersService } from '../services/usersService';
+import { configService } from '../services/configService';
 import { isSuperuser } from '../utils/userRoles';
 import './users.css';
 
 const EMPTY_FORM = {
   email: '',
   role: 'anotador',
+  torneo_id: '',
 };
 
 const UsersPage = () => {
   const { user, loading, isAuthenticated } = useAuth();
   const [users, setUsers] = useState([]);
+  const [tournaments, setTournaments] = useState([]);
+  const [members, setMembers] = useState([]);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [selectedTournamentId, setSelectedTournamentId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -29,15 +34,57 @@ const UsersPage = () => {
     }
   };
 
+  const loadTournaments = async () => {
+    try {
+      const response = await configService.getTournaments();
+      const list = response?.data?.tournaments || [];
+      setTournaments(list);
+      if (list.length > 0) {
+        const firstId = String(list[0].torneo_id);
+        setSelectedTournamentId((prev) => prev || firstId);
+        setForm((prev) => ({ ...prev, torneo_id: prev.torneo_id || firstId }));
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'No se pudo cargar la lista de torneos');
+    }
+  };
+
+  const loadMembers = async (tournamentId) => {
+    if (!tournamentId) {
+      setMembers([]);
+      return;
+    }
+    try {
+      const response = await usersService.getTournamentMembers(tournamentId);
+      setMembers(response?.data?.members || []);
+    } catch (err) {
+      setMembers([]);
+      setError(err.response?.data?.message || 'No se pudo cargar los miembros del torneo');
+    }
+  };
+
   useEffect(() => {
     if (isAuthenticated && isSuperuser(user)) {
       loadUsers();
+      loadTournaments();
     }
   }, [isAuthenticated, user]);
+
+  useEffect(() => {
+    if (selectedTournamentId) {
+      loadMembers(selectedTournamentId);
+    }
+  }, [selectedTournamentId]);
 
   const handleFormChange = (event) => {
     const { name, value } = event.target;
     setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleTournamentChange = (event) => {
+    const value = event.target.value;
+    setSelectedTournamentId(value);
+    setForm((prev) => ({ ...prev, torneo_id: value }));
   };
 
   const handleCreateUser = async (event) => {
@@ -47,10 +94,15 @@ const UsersPage = () => {
     setMessage('');
 
     try {
-      await usersService.createUser(form);
-      setForm(EMPTY_FORM);
-      setMessage('Usuario creado. Se envió solicitud al correo para definir contraseña.');
+      const response = await usersService.createUser({
+        email: form.email,
+        role: form.role,
+        torneo_id: Number(form.torneo_id),
+      });
+      setForm((prev) => ({ ...EMPTY_FORM, torneo_id: prev.torneo_id }));
+      setMessage(response?.message || 'Usuario creado y asignado al torneo.');
       await loadUsers();
+      await loadMembers(form.torneo_id);
     } catch (err) {
       setError(err.response?.data?.message || 'No se pudo crear el usuario');
     } finally {
@@ -65,6 +117,9 @@ const UsersPage = () => {
       await usersService.updateUserRole(targetUserId, role);
       setMessage('Rol actualizado');
       await loadUsers();
+      if (selectedTournamentId) {
+        await loadMembers(selectedTournamentId);
+      }
     } catch (err) {
       setError(err.response?.data?.message || 'No se pudo actualizar el rol');
     }
@@ -80,8 +135,26 @@ const UsersPage = () => {
       await usersService.deleteUser(targetUserId);
       setMessage('Usuario eliminado');
       await loadUsers();
+      if (selectedTournamentId) {
+        await loadMembers(selectedTournamentId);
+      }
     } catch (err) {
       setError(err.response?.data?.message || 'No se pudo eliminar el usuario');
+    }
+  };
+
+  const handleRemoveMember = async (targetUserId) => {
+    const confirmed = window.confirm('¿Quitar el acceso de este usuario al torneo?');
+    if (!confirmed) return;
+
+    setError('');
+    setMessage('');
+    try {
+      await usersService.removeTournamentMember(selectedTournamentId, targetUserId);
+      setMessage('Acceso al torneo eliminado');
+      await loadMembers(selectedTournamentId);
+    } catch (err) {
+      setError(err.response?.data?.message || 'No se pudo quitar el acceso al torneo');
     }
   };
 
@@ -99,12 +172,29 @@ const UsersPage = () => {
       <main className="users-content">
         <section className="users-card">
           <h1>Gestión de usuarios</h1>
-          <p>Solo el superuser puede agregar, editar rol y eliminar usuarios.</p>
+          <p>
+            Los usuarios invitados solo tendrán acceso de escritura en el torneo seleccionado.
+            El superuser puede gestionar todos los usuarios del sistema.
+          </p>
 
           {message && <div className="users-message success">{message}</div>}
           {error && <div className="users-message error">{error}</div>}
 
           <form className="users-form" onSubmit={handleCreateUser}>
+            <select
+              name="torneo_id"
+              value={form.torneo_id}
+              onChange={handleFormChange}
+              disabled={isSubmitting || tournaments.length === 0}
+              required
+            >
+              <option value="">Selecciona torneo</option>
+              {tournaments.map((t) => (
+                <option key={t.torneo_id} value={String(t.torneo_id)}>
+                  {t.name} ({t.year})
+                </option>
+              ))}
+            </select>
             <input
               type="email"
               name="email"
@@ -123,10 +213,66 @@ const UsersPage = () => {
               <option value="anotador">anotador</option>
               <option value="admin">admin</option>
             </select>
-            <button type="submit" disabled={isSubmitting}>
+            <button type="submit" disabled={isSubmitting || !form.torneo_id}>
               {isSubmitting ? 'Guardando...' : 'Agregar usuario y enviar correo'}
             </button>
           </form>
+        </section>
+
+        <section className="users-card">
+          <h2>Miembros por torneo</h2>
+          <div className="users-form">
+            <select
+              value={selectedTournamentId}
+              onChange={handleTournamentChange}
+              disabled={tournaments.length === 0}
+            >
+              <option value="">Selecciona torneo</option>
+              {tournaments.map((t) => (
+                <option key={t.torneo_id} value={String(t.torneo_id)}>
+                  {t.name} ({t.year})
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="users-table-wrapper">
+            <table className="users-table">
+              <thead>
+                <tr>
+                  <th>Nombre</th>
+                  <th>Email</th>
+                  <th>Rol</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {members.map((entry) => {
+                  const full = [entry.name, entry.lname].filter(Boolean).join(' ').trim();
+                  return (
+                    <tr key={entry.id}>
+                      <td>{full || '—'}</td>
+                      <td>{entry.email}</td>
+                      <td>{entry.role}</td>
+                      <td>
+                        <button
+                          type="button"
+                          className="users-delete-btn"
+                          onClick={() => handleRemoveMember(entry.user_id)}
+                        >
+                          Quitar acceso
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {selectedTournamentId && members.length === 0 && (
+                  <tr>
+                    <td colSpan={4}>No hay miembros asignados a este torneo.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </section>
 
         <section className="users-card">
