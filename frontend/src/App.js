@@ -68,7 +68,7 @@ function App() {
           <Route path="/home" element={<Home />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/dashboard" element={<Dashboard />}/>
-          <Route path="/game" element={<ProtectedRoute allowedRoles={authenticatedRoles}><GamePages /></ProtectedRoute>} />
+          <Route path="/game" element={<GamePages />} />
           <Route path="/config/:id" element={<ProtectedRoute allowedRoles={adminRoles}><Config /></ProtectedRoute>} />
           <Route path="/config" element={<ProtectedRoute allowedRoles={adminRoles}><Config /></ProtectedRoute>} />
           <Route path="/team" element={<ProtectedRoute allowedRoles={adminRoles}><Team /></ProtectedRoute>} />
