@@ -7,7 +7,7 @@ describe('dbConfig', () => {
   });
 
   test('usa DATABASE_URL cuando está definida', () => {
-    process.env.DATABASE_URL = 'postgres://user:pass@host:5432/herastats';
+    process.env.DATABASE_URL = 'postgres://user:pass@localhost:5432/herastats';
     process.env.NODE_ENV = 'development';
     delete process.env.DB_HOST;
 
@@ -18,8 +18,30 @@ describe('dbConfig', () => {
     expect(cfg.ssl).toBeUndefined();
   });
 
+  test('activa SSL para host remoto sin sslmode en la URL', () => {
+    process.env.DATABASE_URL = 'postgres://user:pass@db.seenode.com:5432/herastats';
+    process.env.NODE_ENV = 'development';
+    delete process.env.DB_SSL;
+
+    const { getPoolConfig } = require('./dbConfig');
+    const cfg = getPoolConfig();
+
+    expect(cfg.ssl).toEqual({ rejectUnauthorized: false });
+  });
+
+  test('activa SSL con sslmode=require en DATABASE_URL aunque no sea producción', () => {
+    process.env.DATABASE_URL =
+      'postgres://user:pass@host.seenode.com:5432/herastats?sslmode=require';
+    process.env.NODE_ENV = 'development';
+
+    const { getPoolConfig } = require('./dbConfig');
+    const cfg = getPoolConfig();
+
+    expect(cfg.ssl).toEqual({ rejectUnauthorized: false });
+  });
+
   test('activa SSL en producción con DATABASE_URL', () => {
-    process.env.DATABASE_URL = 'postgres://user:pass@host:5432/herastats';
+    process.env.DATABASE_URL = 'postgres://user:pass@localhost:5432/herastats';
     process.env.NODE_ENV = 'production';
 
     const { getPoolConfig } = require('./dbConfig');
@@ -29,7 +51,7 @@ describe('dbConfig', () => {
   });
 
   test('DB_SSL=false desactiva SSL aunque sea producción', () => {
-    process.env.DATABASE_URL = 'postgres://user:pass@host:5432/herastats';
+    process.env.DATABASE_URL = 'postgres://user:pass@localhost:5432/herastats';
     process.env.NODE_ENV = 'production';
     process.env.DB_SSL = 'false';
 
@@ -41,7 +63,7 @@ describe('dbConfig', () => {
 
   test('usa variables DB_* cuando no hay DATABASE_URL', () => {
     delete process.env.DATABASE_URL;
-    process.env.DB_HOST = 'db.example.com';
+    process.env.DB_HOST = 'localhost';
     process.env.DB_PORT = '5432';
     process.env.DB_NAME = 'herastats';
     process.env.DB_USER = 'herastats_user';
@@ -52,7 +74,7 @@ describe('dbConfig', () => {
     const cfg = getPoolConfig();
 
     expect(cfg).toMatchObject({
-      host: 'db.example.com',
+      host: 'localhost',
       port: 5432,
       database: 'herastats',
       user: 'herastats_user',

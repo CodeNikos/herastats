@@ -11,7 +11,7 @@
 const fs = require('fs');
 const path = require('path');
 const { Client } = require('pg');
-const { getPoolConfig } = require('../src/config/dbConfig');
+const { getPoolConfig, resolveDbHost } = require('../src/config/dbConfig');
 
 const envFile = process.env.ENV_FILE;
 if (envFile) {
@@ -38,7 +38,11 @@ async function main() {
     process.exit(1);
   }
 
-  const client = new Client(getPoolConfig());
+  const poolConfig = getPoolConfig();
+  const targetHost = resolveDbHost() || poolConfig.host || '(DATABASE_URL)';
+  console.log(`[apply-procedures] Conectando a host: ${targetHost}`);
+
+  const client = new Client(poolConfig);
   await client.connect();
 
   const dbName = (await client.query('SELECT current_database() AS db')).rows[0]?.db;

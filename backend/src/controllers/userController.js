@@ -40,19 +40,15 @@ const createUser = async (req, res) => {
     const { email, role, torneo_id: torneoIdRaw } = req.body;
     const normalizedEmail = String(email || '').trim().toLowerCase();
     const normalizedRole = role ? String(role).trim().toLowerCase() : 'anotador';
-    const torneoId = Number(torneoIdRaw);
+    const torneoIdProvided =
+      torneoIdRaw !== undefined && torneoIdRaw !== null && String(torneoIdRaw).trim() !== '';
+    const torneoId = torneoIdProvided ? Number(torneoIdRaw) : null;
+    const hasTorneoId = Number.isInteger(torneoId) && torneoId > 0;
 
     if (!normalizedEmail) {
       return res.status(400).json({
         success: false,
         message: 'Email es obligatorio'
-      });
-    }
-
-    if (!Number.isInteger(torneoId) || torneoId <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'torneo_id es obligatorio y debe ser un número válido'
       });
     }
 
@@ -63,12 +59,28 @@ const createUser = async (req, res) => {
       });
     }
 
-    const access = await assertTournamentInviteAccess(req, torneoId);
-    if (!access.ok) {
-      return res.status(access.status).json({
+    if (normalizedRole === 'anotador' && !hasTorneoId) {
+      return res.status(400).json({
         success: false,
-        message: access.message
+        message: 'torneo_id es obligatorio para usuarios con rol anotador'
       });
+    }
+
+    if (torneoIdProvided && !hasTorneoId) {
+      return res.status(400).json({
+        success: false,
+        message: 'torneo_id debe ser un número válido'
+      });
+    }
+
+    if (hasTorneoId) {
+      const access = await assertTournamentInviteAccess(req, torneoId);
+      if (!access.ok) {
+        return res.status(access.status).json({
+          success: false,
+          message: access.message
+        });
+      }
     }
 
     const existingUser = await User.findByEmail(normalizedEmail);
@@ -77,6 +89,13 @@ const createUser = async (req, res) => {
         return res.status(400).json({
           success: false,
           message: 'No se puede asignar un superuser a un torneo'
+        });
+      }
+
+      if (!hasTorneoId) {
+        return res.status(400).json({
+          success: false,
+          message: 'El usuario ya existe'
         });
       }
 
@@ -118,11 +137,13 @@ const createUser = async (req, res) => {
       role: normalizedRole
     });
 
-    await TournamentMember.add({
-      userId: created.id,
-      torneoId,
-      invitedBy: req.user.id
-    });
+    if (hasTorneoId) {
+      await TournamentMember.add({
+        userId: created.id,
+        torneoId,
+        invitedBy: req.user.id
+      });
+    }
 
     let mailResult = { skipped: true };
     try {
@@ -131,14 +152,15 @@ const createUser = async (req, res) => {
       console.error('Error enviando correo de configuración de contraseña:', mailError);
     }
 
+    const assignedMsg = hasTorneoId ? ' y asignado al torneo' : '';
     return res.status(201).json({
       success: true,
       message: mailResult?.skipped
-        ? 'Usuario creado y asignado al torneo. SMTP no configurado: no se pudo enviar el correo para definir contraseña.'
-        : 'Usuario creado, asignado al torneo y correo de activación enviado.',
+        ? `Usuario creado${assignedMsg}. SMTP no configurado: no se pudo enviar el correo para definir contraseña.`
+        : `Usuario creado${assignedMsg} y correo de activación enviado.`,
       data: {
         user: created,
-        torneo_id: torneoId,
+        torneo_id: hasTorneoId ? torneoId : null,
         password_setup_email_sent: !mailResult?.skipped
       }
     });

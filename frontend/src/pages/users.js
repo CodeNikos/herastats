@@ -78,7 +78,13 @@ const UsersPage = () => {
 
   const handleFormChange = (event) => {
     const { name, value } = event.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    setForm((prev) => {
+      const next = { ...prev, [name]: value };
+      if (name === 'role' && value === 'admin') {
+        next.torneo_id = '';
+      }
+      return next;
+    });
   };
 
   const handleTournamentChange = (event) => {
@@ -93,16 +99,32 @@ const UsersPage = () => {
     setError('');
     setMessage('');
 
+    const torneoId = Number(form.torneo_id);
+    if (form.role === 'anotador' && (!Number.isInteger(torneoId) || torneoId <= 0)) {
+      setError('Selecciona un torneo para el anotador');
+      setIsSubmitting(false);
+      return;
+    }
+
     try {
-      const response = await usersService.createUser({
+      const payload = {
         email: form.email,
         role: form.role,
-        torneo_id: Number(form.torneo_id),
-      });
-      setForm((prev) => ({ ...EMPTY_FORM, torneo_id: prev.torneo_id }));
-      setMessage(response?.message || 'Usuario creado y asignado al torneo.');
+      };
+      if (form.role === 'anotador') {
+        payload.torneo_id = torneoId;
+      }
+
+      const response = await usersService.createUser(payload);
+      setForm((prev) => ({
+        ...EMPTY_FORM,
+        torneo_id: prev.role === 'anotador' ? prev.torneo_id : '',
+      }));
+      setMessage(response?.message || 'Usuario creado correctamente.');
       await loadUsers();
-      await loadMembers(form.torneo_id);
+      if (form.role === 'anotador' && form.torneo_id) {
+        await loadMembers(form.torneo_id);
+      }
     } catch (err) {
       setError(err.response?.data?.message || 'No se pudo crear el usuario');
     } finally {
@@ -173,37 +195,14 @@ const UsersPage = () => {
         <section className="users-card">
           <h1>Gestión de usuarios</h1>
           <p>
-            Los usuarios invitados solo tendrán acceso de escritura en el torneo seleccionado.
-            El superuser puede gestionar todos los usuarios del sistema.
+            Los anotadores requieren un torneo asignado. Los administradores pueden crearse sin
+            torneo y crearán los suyos al iniciar sesión.
           </p>
 
           {message && <div className="users-message success">{message}</div>}
           {error && <div className="users-message error">{error}</div>}
 
           <form className="users-form" onSubmit={handleCreateUser}>
-            <select
-              name="torneo_id"
-              value={form.torneo_id}
-              onChange={handleFormChange}
-              disabled={isSubmitting || tournaments.length === 0}
-              required
-            >
-              <option value="">Selecciona torneo</option>
-              {tournaments.map((t) => (
-                <option key={t.torneo_id} value={String(t.torneo_id)}>
-                  {t.name} ({t.year})
-                </option>
-              ))}
-            </select>
-            <input
-              type="email"
-              name="email"
-              placeholder="correo@dominio.com"
-              value={form.email}
-              onChange={handleFormChange}
-              required
-              disabled={isSubmitting}
-            />
             <select
               name="role"
               value={form.role}
@@ -213,7 +212,35 @@ const UsersPage = () => {
               <option value="anotador">anotador</option>
               <option value="admin">admin</option>
             </select>
-            <button type="submit" disabled={isSubmitting || !form.torneo_id}>
+            {form.role === 'anotador' && (
+              <select
+                name="torneo_id"
+                value={form.torneo_id}
+                onChange={handleFormChange}
+                disabled={isSubmitting || tournaments.length === 0}
+                required
+              >
+                <option value="">Selecciona torneo</option>
+                {tournaments.map((t) => (
+                  <option key={t.torneo_id} value={String(t.torneo_id)}>
+                    {t.name} ({t.year})
+                  </option>
+                ))}
+              </select>
+            )}
+            <input
+              type="email"
+              name="email"
+              placeholder="correo@dominio.com"
+              value={form.email}
+              onChange={handleFormChange}
+              required
+              disabled={isSubmitting}
+            />
+            <button
+              type="submit"
+              disabled={isSubmitting || (form.role === 'anotador' && !form.torneo_id)}
+            >
               {isSubmitting ? 'Guardando...' : 'Agregar usuario y enviar correo'}
             </button>
           </form>

@@ -17,18 +17,23 @@ function AddUserModal({ open, onClose, tournamentId = null }) {
   const [formError, setFormError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
+  const tournamentRequired = form.role === 'anotador';
+  const resolvedTournamentId =
+    tournamentRequired && tournamentId ? String(tournamentId) : form.torneo_id;
+  const showTournamentPicker = tournamentRequired && !tournamentId;
+
   useEffect(() => {
     if (!open) return;
     setForm({
       ...EMPTY_FORM,
-      torneo_id: tournamentId ? String(tournamentId) : '',
+      torneo_id: tournamentId && tournamentRequired ? String(tournamentId) : '',
     });
     setFormError('');
     setSuccessMessage('');
   }, [open, tournamentId]);
 
   useEffect(() => {
-    if (!open || tournamentId) return;
+    if (!open || !showTournamentPicker) return;
 
     let cancelled = false;
     const loadTournaments = async () => {
@@ -53,13 +58,19 @@ function AddUserModal({ open, onClose, tournamentId = null }) {
     return () => {
       cancelled = true;
     };
-  }, [open, tournamentId]);
+  }, [open, showTournamentPicker]);
 
   if (!open) return null;
 
   const handleChange = (event) => {
     const { name, value } = event.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    setForm((prev) => {
+      const next = { ...prev, [name]: value };
+      if (name === 'role' && value === 'admin') {
+        next.torneo_id = '';
+      }
+      return next;
+    });
   };
 
   const handleSubmit = async (event) => {
@@ -67,27 +78,31 @@ function AddUserModal({ open, onClose, tournamentId = null }) {
     setFormError('');
     setSuccessMessage('');
 
-    const torneoId = Number(form.torneo_id || tournamentId);
-    if (!Number.isInteger(torneoId) || torneoId <= 0) {
-      setFormError('Selecciona un torneo para asignar al usuario');
+    const torneoId = Number(resolvedTournamentId);
+    if (tournamentRequired && (!Number.isInteger(torneoId) || torneoId <= 0)) {
+      setFormError('Selecciona un torneo para asignar al anotador');
       return;
     }
 
     setSubmitting(true);
 
     try {
-      const response = await usersService.createUser({
+      const payload = {
         email: form.email.trim(),
         role: form.role,
-        torneo_id: torneoId,
-      });
+      };
+      if (tournamentRequired && Number.isInteger(torneoId) && torneoId > 0) {
+        payload.torneo_id = torneoId;
+      }
+
+      const response = await usersService.createUser(payload);
       setSuccessMessage(
         response?.message ||
           'Usuario creado. Se envió un correo para configurar la contraseña.'
       );
       setForm({
         ...EMPTY_FORM,
-        torneo_id: tournamentId ? String(tournamentId) : '',
+        torneo_id: tournamentId && form.role === 'anotador' ? String(tournamentId) : '',
       });
     } catch (err) {
       setFormError(err.response?.data?.message || 'No se pudo crear el usuario');
@@ -96,7 +111,10 @@ function AddUserModal({ open, onClose, tournamentId = null }) {
     }
   };
 
-  const showTournamentPicker = !tournamentId;
+  const helperText =
+    form.role === 'admin'
+      ? 'El administrador podrá crear sus propios torneos. Se enviará un correo con un enlace para crear su contraseña.'
+      : 'El anotador tendrá acceso de escritura solo en el torneo seleccionado. Se enviará un correo con un enlace para crear su contraseña.';
 
   return (
     <div
@@ -115,36 +133,8 @@ function AddUserModal({ open, onClose, tournamentId = null }) {
         <h2 id="add-user-title" className="profile-edit-title">
           Agregar usuario
         </h2>
-        <p className="profile-edit-email">
-          El usuario tendrá acceso de escritura solo en el torneo seleccionado.
-          Se enviará un correo con un enlace para crear su contraseña.
-        </p>
+        <p className="profile-edit-email">{helperText}</p>
         <form onSubmit={handleSubmit}>
-          {showTournamentPicker && (
-            <>
-              <label className="profile-edit-label" htmlFor="add-user-torneo">
-                Torneo
-              </label>
-              <select
-                id="add-user-torneo"
-                className="profile-edit-input"
-                name="torneo_id"
-                value={form.torneo_id}
-                onChange={handleChange}
-                required
-                disabled={submitting || loadingTournaments}
-              >
-                <option value="">
-                  {loadingTournaments ? 'Cargando torneos…' : 'Selecciona un torneo'}
-                </option>
-                {tournaments.map((t) => (
-                  <option key={t.torneo_id} value={String(t.torneo_id)}>
-                    {t.name} ({t.year})
-                  </option>
-                ))}
-              </select>
-            </>
-          )}
           <label className="profile-edit-label" htmlFor="add-user-email">
             Correo electrónico
           </label>
@@ -174,6 +164,31 @@ function AddUserModal({ open, onClose, tournamentId = null }) {
             <option value="anotador">Anotador</option>
             <option value="admin">Administrador</option>
           </select>
+          {showTournamentPicker && (
+            <>
+              <label className="profile-edit-label" htmlFor="add-user-torneo">
+                Torneo
+              </label>
+              <select
+                id="add-user-torneo"
+                className="profile-edit-input"
+                name="torneo_id"
+                value={form.torneo_id}
+                onChange={handleChange}
+                required
+                disabled={submitting || loadingTournaments}
+              >
+                <option value="">
+                  {loadingTournaments ? 'Cargando torneos…' : 'Selecciona un torneo'}
+                </option>
+                {tournaments.map((t) => (
+                  <option key={t.torneo_id} value={String(t.torneo_id)}>
+                    {t.name} ({t.year})
+                  </option>
+                ))}
+              </select>
+            </>
+          )}
           {formError && <p className="profile-edit-error">{formError}</p>}
           {successMessage && (
             <p className="profile-edit-success">{successMessage}</p>

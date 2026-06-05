@@ -2,6 +2,28 @@
  * Configuración del pool PostgreSQL.
  * Prioridad: DATABASE_URL (inyectada por Seenode al vincular BD) > variables DB_*.
  */
+function isLocalDbHost(host) {
+  const h = String(host || '').trim().toLowerCase();
+  return !h || h === 'localhost' || h === '127.0.0.1' || h === '::1';
+}
+
+function getHostFromDatabaseUrl(databaseUrl) {
+  try {
+    const parsed = new URL(String(databaseUrl).replace(/^postgres(ql)?:/i, 'http:'));
+    return parsed.hostname;
+  } catch {
+    return '';
+  }
+}
+
+function resolveDbHost() {
+  const databaseUrl = String(process.env.DATABASE_URL || '').trim();
+  if (databaseUrl) {
+    return getHostFromDatabaseUrl(databaseUrl);
+  }
+  return process.env.DB_HOST;
+}
+
 function parseSslOption() {
   const raw = String(process.env.DB_SSL ?? '').trim().toLowerCase();
   if (raw === 'false' || raw === '0' || raw === 'disable') {
@@ -13,6 +35,23 @@ function parseSslOption() {
   if (process.env.NODE_ENV === 'production') {
     return { rejectUnauthorized: false };
   }
+
+  const databaseUrl = String(process.env.DATABASE_URL || '').trim().toLowerCase();
+  if (
+    databaseUrl &&
+    (databaseUrl.includes('sslmode=require') ||
+      databaseUrl.includes('sslmode=verify-ca') ||
+      databaseUrl.includes('ssl=true'))
+  ) {
+    return { rejectUnauthorized: false };
+  }
+
+  // PostgreSQL gestionado (Seenode, etc.) desde la máquina local
+  const host = resolveDbHost();
+  if (!isLocalDbHost(host)) {
+    return { rejectUnauthorized: false };
+  }
+
   return undefined;
 }
 
@@ -57,5 +96,7 @@ function getPoolConfig() {
 
 module.exports = {
   getPoolConfig,
-  parseSslOption
+  parseSslOption,
+  isLocalDbHost,
+  resolveDbHost
 };
