@@ -277,3 +277,19 @@ Ver procedimiento completo en [SECURITY_DEPLOY.md](SECURITY_DEPLOY.md#respuesta-
 5. Desplegar frontend con `REACT_APP_API_URL` del backend activo
 6. Ejecutar checklist funcional
 7. Configurar monitoreo y política de backups
+
+### Redeploy rápido (código ya en GitHub)
+
+Tras `git push` a `main`:
+
+1. **Backend (Seenode → Redeploy manual)**
+   - Añadir/verificar env: `SITE_URL`, `ANALYTICS_IP_SALT`, `CORS_ORIGIN=https://www.herastats.com`
+   - Plantilla: [backend/.env.seenode.example](../backend/.env.seenode.example)
+2. **Frontend (Seenode → Redeploy manual)**
+   - Añadir/verificar: `REACT_APP_SITE_URL=https://www.herastats.com`
+   - Plantilla: [frontend/.env.seenode.example](../frontend/.env.seenode.example)
+3. **Verificar producción:**
+
+```bash
+node scripts/verify-production-deploy.js https://TU-BACKEND.seenode.com https://www.herastats.com
+```
