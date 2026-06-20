@@ -3,19 +3,10 @@ import { Link, useParams, useSearchParams } from 'react-router-dom';
 import Navbar from '../components/navbar';
 import { configService } from '../services/configService';
 import { isGameFinishedState } from '../utils/gameEstado';
-import { FOOTBALL_SPORT_ID } from '../utils/footballEventTypes';
+import { isFootballSport } from '../utils/tournamentSport';
 import './team_players.css';
 
 const TEAM_FALLBACK_IMAGE = '/Hera_logo.png';
-function isFootballSportName(value) {
-  const text = String(value || '').trim().toLowerCase();
-  return (
-    text.includes('futbol') ||
-    text.includes('fútbol') ||
-    text.includes('football') ||
-    text.includes('soccer')
-  );
-}
 
 const parseScoreValue = (value) => {
   if (value === null || value === undefined || value === '') return null;
@@ -317,8 +308,10 @@ function TeamPlayersPage() {
         setTeam(found);
 
         const tourData = tRes.data?.tournament || null;
-        const loadFootballStats =
-          Number(tourData?.sport_id) === FOOTBALL_SPORT_ID || isFootballSportName(tourData?.sport_name);
+        const loadFootballStats = isFootballSport({
+          sport_id: tourData?.sport_id,
+          sport_name: tourData?.sport_name
+        });
 
         let statsMap = {};
         try {
@@ -362,8 +355,7 @@ function TeamPlayersPage() {
   }, [tournamentId, teamId]);
 
   const isFootballTournament = useMemo(
-    () =>
-      Number(tournament?.sport_id) === FOOTBALL_SPORT_ID || isFootballSportName(tournament?.sport_name),
+    () => isFootballSport({ sport_id: tournament?.sport_id, sport_name: tournament?.sport_name }),
     [tournament?.sport_id, tournament?.sport_name]
   );
 

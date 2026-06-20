@@ -10,10 +10,10 @@ import {
   normalizeDivisionName,
   normalizeGroupName
 } from '../utils/groupStandings';
+import { isFootballSport } from '../utils/tournamentSport';
 import './stats.css';
 
 const MIN_ROWS_PER_GROUP = 4;
-const FOOTBALL_SPORT_ID = 2;
 /** Partidos clasificatorio superior vs inferior en la clasificación por grupos (banda verde vs naranja). */
 const STANDINGS_UPPER_BRACKET_MAX_RANK = 4;
 const TEAM_FALLBACK_IMAGE = '/Hera_logo.png';
@@ -38,16 +38,6 @@ function standingsRowStripeClass(rank) {
   if (rank == null || !Number.isFinite(rank)) return '';
   if (rank <= STANDINGS_UPPER_BRACKET_MAX_RANK) return 'stats_standings_row--tier-upper';
   return 'stats_standings_row--tier-lower';
-}
-
-function isFootballSportName(value) {
-  const text = String(value || '').trim().toLowerCase();
-  return (
-    text.includes('futbol') ||
-    text.includes('fútbol') ||
-    text.includes('football') ||
-    text.includes('soccer')
-  );
 }
 
 function enrichFootballPlayerRow(row) {
@@ -290,8 +280,7 @@ function StatsPage() {
 
   useEffect(() => {
     if (!tournamentId || statsSection !== 'players') return;
-    const isFootball =
-      Number(tournamentSportId) === FOOTBALL_SPORT_ID || isFootballSportName(tournamentSportName);
+    const isFootball = isFootballSport({ sportId: tournamentSportId, sportName: tournamentSportName });
     if (!isFootball && (!playerTabKey || playerTabKey === '__all__')) return;
     let cancelled = false;
     const silentRefresh = catalogRefreshNonce > 0;
@@ -371,7 +360,7 @@ function StatsPage() {
   }, [tournamentId, statsSection, spiritDivisionTab, catalogRefreshNonce]);
 
   const isFootballTournament = useMemo(
-    () => Number(tournamentSportId) === FOOTBALL_SPORT_ID || isFootballSportName(tournamentSportName),
+    () => isFootballSport({ sportId: tournamentSportId, sportName: tournamentSportName }),
     [tournamentSportId, tournamentSportName]
   );
 

@@ -5,6 +5,7 @@ import SeoHead from '../components/SeoHead';
 import { DEFAULT_SITE_DESCRIPTION, DEFAULT_SITE_TITLE } from '../config/siteConfig';
 import TournamentBracket from '../components/TournamentBracket';
 import PlacementsBracket from '../components/PlacementsBracket';
+import { useTournamentSport } from '../hooks/useTournamentSport';
 import { configService } from '../services/configService';
 import {
   broadcastTournamentCoherenceChanged,
@@ -30,9 +31,11 @@ function PoolBracketsPage() {
   const queryParams = new URLSearchParams(location.search);
   const queryTournamentId = queryParams.get('tournamentId');
   const tournamentId = routeTournamentId || queryTournamentId;
-  const isFootballTournament = Number(tournamentId) === 2;
-  const [tournamentDisplayName, setTournamentDisplayName] = useState('');
-  const [tournamentImageUrl, setTournamentImageUrl] = useState('');
+  const {
+    isFootballTournament,
+    tournamentName: tournamentDisplayName,
+    tournamentImageUrl
+  } = useTournamentSport(tournamentId);
   const [selectedDivision, setSelectedDivision] = useState('');
   const [activeBracketView, setActiveBracketView] = useState('all');
 
@@ -224,7 +227,7 @@ function PoolBracketsPage() {
     return () => {
       cancelled = true;
     };
-  }, [tournamentId, selectedDivision, activeBracketView, rankedStructureNonce, routeReloadNonce]);
+  }, [tournamentId, selectedDivision, activeBracketView, rankedStructureNonce, routeReloadNonce, isFootballTournament]);
 
   const finalPlacementsGrid = useMemo(
     () => buildPlacementGrid(finalPlacementsRows),
@@ -263,29 +266,6 @@ function PoolBracketsPage() {
     setShowFinalPlacements(false);
     setFinalPlacementsRows([]);
     setFinalPlacementsError('');
-  }, [tournamentId]);
-
-  useEffect(() => {
-    if (!tournamentId) {
-      setTournamentDisplayName('');
-      setTournamentImageUrl('');
-      return;
-    }
-    let cancelled = false;
-    configService.getTournamentById(tournamentId).then((res) => {
-      if (cancelled) return;
-      const t = res?.success ? res.data?.tournament : null;
-      setTournamentDisplayName(t?.name || '');
-      setTournamentImageUrl(t?.image_url || '');
-    }).catch(() => {
-      if (!cancelled) {
-        setTournamentDisplayName('');
-        setTournamentImageUrl('');
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
   }, [tournamentId]);
 
   const poolSearch = useMemo(() => {

@@ -5,6 +5,7 @@ import { useParams } from 'react-router-dom';
 import { configService } from '../services/configService';
 import { useAuth } from '../hooks/useAuth';
 import { isSuperuser } from '../utils/userRoles';
+import { isFootballSportName } from '../utils/tournamentSport';
 
 /** Opciones base de fase en configuración → phase_num en BD */
 const BASE_PHASE_STAGE_OPTIONS = [
@@ -19,11 +20,6 @@ const FOOTBALL_EXTRA_STAGE_OPTIONS = [
     { value: 'Octavos', label: 'Octavos', phase_num: 3 },
     { value: 'Cuartos', label: 'Cuartos', phase_num: 4 }
 ];
-
-function isFootballSportName(sportName) {
-    const text = String(sportName || '').trim().toLowerCase();
-    return text.includes('futbol') || text.includes('fútbol') || text.includes('football') || text.includes('soccer');
-}
 
 function getPhaseOptionsBySportName(sportName) {
     if (isFootballSportName(sportName)) {

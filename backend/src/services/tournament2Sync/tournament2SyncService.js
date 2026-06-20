@@ -19,6 +19,7 @@ const {
   mapSchedulePayload,
   mapScoresPayload
 } = require('./mappers');
+const { FOOTBALL_SPORT_ID } = require('../../utils/footballEventTypes');
 
 function nowIsoCompact() {
   return new Date().toISOString().replace(/[^\d]/g, '').slice(0, 14);
@@ -58,6 +59,17 @@ async function ensureTournamentExists(tournamentId) {
   const tournament = await TournamentConfig.findById(tournamentId);
   if (!tournament) {
     throw new Error(`No existe el torneo ${tournamentId}`);
+  }
+  return tournament;
+}
+
+async function assertFootballTargetTournament(tournamentId) {
+  const tournament = await ensureTournamentExists(tournamentId);
+  const sportId = tournament.sport_id != null ? Number(tournament.sport_id) : null;
+  if (sportId !== FOOTBALL_SPORT_ID) {
+    throw new Error(
+      `El torneo ${tournamentId} no es de fútbol (sport_id=${sportId ?? 'null'}; se requiere ${FOOTBALL_SPORT_ID})`
+    );
   }
   return tournament;
 }
@@ -534,7 +546,7 @@ async function syncTournament2InitialSeed(options = {}) {
   if (!actor) {
     throw new Error(`TOURNAMENT_2_SYNC_ACTOR_USER_ID=${actorUserId} no existe en users`);
   }
-  await ensureTournamentExists(tournamentId);
+  await assertFootballTargetTournament(tournamentId);
   if (!forceSeed && !dryRun && (await hasCompletedInitialSeed(tournamentId))) {
     return {
       runId,
@@ -615,7 +627,7 @@ async function syncTournament2MatchesTick(options = {}) {
   const gameExternalIdFilter = options.gameExternalId ? String(options.gameExternalId).trim() : '';
   const runId = options.runId || createRunId();
   const tournamentId = TARGET_TOURNAMENT_ID;
-  await ensureTournamentExists(tournamentId);
+  await assertFootballTargetTournament(tournamentId);
   const client = createExternalApiClient(cfg);
   const matchesPayload = await client.fetchMatches();
 
@@ -684,6 +696,7 @@ async function syncTournament2(options = {}) {
   if (cfg.targetTournamentId !== TARGET_TOURNAMENT_ID) {
     throw new Error(`Configuración inválida: targetTournamentId debe ser ${TARGET_TOURNAMENT_ID}`);
   }
+  await assertFootballTargetTournament(TARGET_TOURNAMENT_ID);
   const selectedStep = options.step ? String(options.step).trim() : '';
   const steps = normalizeStepSelection(selectedStep);
   const runId = createRunId();

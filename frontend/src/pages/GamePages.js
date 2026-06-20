@@ -32,11 +32,11 @@ import {
 } from '../utils/tournamentSync';
 import { goalTotalsFromTimelineEvents } from '../utils/goalTotalsFromTimeline';
 import {
-  FOOTBALL_SPORT_ID,
   footballEventAbbrev,
   formatFootballEventMinute,
   parseFootballMinuteSort
 } from '../utils/footballEventTypes';
+import { isFootballSport } from '../utils/tournamentSport';
 import { PiSoccerBallFill } from "react-icons/pi";
 
 /** Estado del partido con variantes habituales de la API ({estado}/{Estado}). */
@@ -811,11 +811,11 @@ function GamePages() {
   const gameOngoing = useMemo(() => isGameOngoingState(gameEstado), [gameEstado]);
   const gameUpcoming = useMemo(() => isGameUpcomingState(gameEstado), [gameEstado]);
   const spiritSurveyEnabled = useMemo(
-    () => Number(tournamentSportId) !== FOOTBALL_SPORT_ID,
+    () => !isFootballSport({ sportId: tournamentSportId }),
     [tournamentSportId]
   );
   const isFootballTournament = useMemo(
-    () => Number(tournamentSportId) === FOOTBALL_SPORT_ID,
+    () => isFootballSport({ sportId: tournamentSportId }),
     [tournamentSportId]
   );
   const rosterLoadKeyRef = useRef('');
@@ -1532,7 +1532,7 @@ function GamePages() {
         : gameRow.visitor_name != null && String(gameRow.visitor_name).trim() !== ''
           ? String(gameRow.visitor_name).trim()
           : 'Visitante';
-    return Number(tournamentSportId) === FOOTBALL_SPORT_ID
+    return isFootballSport({ sportId: tournamentSportId })
       ? buildFootballTimelineItems(gameEvents, localId, visitorId, homeNm, awayNm)
       : buildGameTimelineItems(gameEvents, localId, visitorId, homeNm, awayNm);
   }, [gameEvents, gameRow, gamePageSlotResolution, tournamentSportId]);

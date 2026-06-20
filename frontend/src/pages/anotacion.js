@@ -17,7 +17,7 @@ import {
   getMatchWinner,
   parseScoreValue
 } from '../utils/gameDisplayFormat';
-import { FOOTBALL_SPORT_ID } from '../utils/footballEventTypes';
+import { isFootballSport } from '../utils/tournamentSport';
 import { isAdminOrSuperuser } from '../utils/userRoles';
 
 import './anotacion.css';
@@ -139,7 +139,7 @@ function AnotacionScheduleTableRow({
   const footballEventsPath = buildFootballEventsPath(game);
   const ongoing = isEstadoOngoing(game.estado);
   const finished = isEstadoFinished(game.estado);
-  const isFootball = Number(game.sportId) === FOOTBALL_SPORT_ID;
+  const isFootball = isFootballSport({ sportId: game.sportId });
   const showFootballPostMatch = finished && isFootball && canPostMatchFootball;
   const actionDisabled = finished && !showFootballPostMatch;
 

@@ -4,6 +4,7 @@ import * as XLSX from 'xlsx';
 import Navbar from '../components/navbar';
 import { configService } from '../services/configService';
 import { broadcastTournamentCoherenceChanged } from '../utils/tournamentSync';
+import { isFootballSport } from '../utils/tournamentSport';
 import './calendarconfig.css';
 
 const TEAM_FALLBACK_IMAGE = '/Hera_logo.png';
@@ -95,7 +96,6 @@ const normalizeTimeInput = (value) => {
   return `${hour.padStart(2, '0')}:${minute}`;
 };
 
-const FOOTBALL_SPORT_ID = 2;
 const GAMES_PER_PAGE = 10;
 
 const mapDbGameToUi = (game) => ({
@@ -468,8 +468,8 @@ function CalendarConfigPage() {
   };
 
   const isFootballTournament = useMemo(
-    () => Number(tournament?.sport_id) === FOOTBALL_SPORT_ID,
-    [tournament?.sport_id]
+    () => isFootballSport({ sport_id: tournament?.sport_id, sport_name: tournament?.sport_name }),
+    [tournament?.sport_id, tournament?.sport_name]
   );
 
   const knockoutPhases = useMemo(() => phases.filter((phase) => !phase.isGroup), [phases]);

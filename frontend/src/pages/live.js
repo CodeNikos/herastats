@@ -17,10 +17,10 @@ import { countCompletedGoals, getRatioForGoalIndex, mixRatioImageSrc } from '../
 import { broadcastTournamentCoherenceChanged } from '../utils/tournamentSync';
 import { showToast } from '../utils/toast';
 import '../styles/toast.css';
+import { isFootballSport } from '../utils/tournamentSport';
 import './live.css';
 
 const TEAM_FALLBACK_IMAGE = '/Hera_logo.png';
-const FOOTBALL_SPORT_ID = 2;
 
 function trimNonemptyStr(v) {
   if (v == null) return '';
@@ -291,7 +291,7 @@ function LivePage() {
   const gameFinished = useMemo(() => isGameFinishedState(gameRow?.estado), [gameRow]);
 
   const isFootballTournament = useMemo(
-    () => Number(tournamentSportId) === FOOTBALL_SPORT_ID,
+    () => isFootballSport({ sportId: tournamentSportId }),
     [tournamentSportId]
   );
 

@@ -3,6 +3,7 @@ import { useLocation, useParams } from 'react-router-dom';
 import Navbar from '../components/navbar';
 import TournamentBracket from '../components/TournamentBracket';
 import PlacementsBracket from '../components/PlacementsBracket';
+import { useTournamentSport } from '../hooks/useTournamentSport';
 import { configService } from '../services/configService';
 import {
   aggregateTeamCardStatsFromPlayerRows,
@@ -176,7 +177,7 @@ function BracketsPage() {
   const [selectedDivision, setSelectedDivision] = useState('');
   const [activeBracketView, setActiveBracketView] = useState('all');
   const [rankedCanvasList, setRankedCanvasList] = useState([]);
-  const isFootballTournament = Number(tournamentId) === 2;
+  const { isFootballTournament } = useTournamentSport(tournamentId);
   const rankedCanvasIds = useMemo(
     () => rankedCanvasList.map((canvas) => String(canvas.id)).filter(Boolean),
     [rankedCanvasList]
@@ -215,7 +216,7 @@ function BracketsPage() {
     return () => {
       cancelled = true;
     };
-  }, [tournamentId, selectedDivision, activeBracketView]);
+  }, [tournamentId, selectedDivision, activeBracketView, isFootballTournament]);
 
   return (
     <div className="brackets-page">
