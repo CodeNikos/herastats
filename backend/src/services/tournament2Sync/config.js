@@ -1,4 +1,4 @@
-const { TARGET_TOURNAMENT_ID } = require('./constants');
+const { DEFAULT_TARGET_TOURNAMENT_ID } = require('./constants');
 
 function parseBool(raw, fallback = false) {
   if (raw == null) return fallback;
@@ -27,9 +27,13 @@ function getTournament2SyncConfig() {
     ? String(process.env.TOURNAMENT_2_EXTERNAL_API_BASE_URL).trim()
     : 'https://api.football-data.org/v4';
   const actorUserId = parseIntSafe(process.env.TOURNAMENT_2_SYNC_ACTOR_USER_ID, NaN);
+  const targetTournamentId = parseIntSafe(
+    process.env.TOURNAMENT_2_SYNC_TARGET_TOURNAMENT_ID,
+    DEFAULT_TARGET_TOURNAMENT_ID
+  );
 
   return {
-    targetTournamentId: TARGET_TOURNAMENT_ID,
+    targetTournamentId,
     enabled,
     baseUrl,
     apiKey: process.env.TOURNAMENT_2_EXTERNAL_API_KEY
@@ -63,6 +67,9 @@ function validateTournament2SyncConfig(cfg) {
   }
   if (!cfg.apiKey) {
     mustEnv('TOURNAMENT_2_EXTERNAL_API_KEY');
+  }
+  if (!Number.isFinite(cfg.targetTournamentId) || cfg.targetTournamentId <= 0) {
+    throw new Error('TOURNAMENT_2_SYNC_TARGET_TOURNAMENT_ID debe ser un entero positivo');
   }
   if (!Number.isFinite(cfg.cronMinutes) || cfg.cronMinutes <= 0) {
     throw new Error('TOURNAMENT_2_CRON_MINUTES debe ser un entero positivo');

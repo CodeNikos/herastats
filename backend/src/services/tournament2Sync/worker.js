@@ -51,7 +51,7 @@ async function startTournament2Worker() {
   const interval = setInterval(runTick, intervalMs);
   if (typeof interval.unref === 'function') interval.unref();
 
-  console.log(`[tournament2-sync] worker activo cada ${cfg.cronMinutes} minutos`);
+  console.log(`[tournament2-sync] worker activo (torneo_id=${cfg.targetTournamentId}) cada ${cfg.cronMinutes} minutos`);
   return {
     stop() {
       clearInterval(interval);

@@ -10,7 +10,6 @@ const TournamentExternalEntity = require('../../models/TournamentExternalEntity'
 const { createExternalApiClient } = require('./externalApiClient');
 const { getTournament2SyncConfig, validateTournament2SyncConfig } = require('./config');
 const {
-  TARGET_TOURNAMENT_ID,
   STEP_ORDER
 } = require('./constants');
 const {
@@ -540,7 +539,7 @@ async function syncTournament2InitialSeed(options = {}) {
   const runPlayers = options.runPlayers !== false;
   const forceSeed = options.forceSeed === true;
   const runId = options.runId || createRunId();
-  const tournamentId = TARGET_TOURNAMENT_ID;
+  const tournamentId = cfg.targetTournamentId;
   const actorUserId = Number(cfg.actorUserId);
   const actor = await findUserById(actorUserId);
   if (!actor) {
@@ -626,7 +625,7 @@ async function syncTournament2MatchesTick(options = {}) {
   const runScores = options.runScores !== false;
   const gameExternalIdFilter = options.gameExternalId ? String(options.gameExternalId).trim() : '';
   const runId = options.runId || createRunId();
-  const tournamentId = TARGET_TOURNAMENT_ID;
+  const tournamentId = cfg.targetTournamentId;
   await assertFootballTargetTournament(tournamentId);
   const client = createExternalApiClient(cfg);
   const matchesPayload = await client.fetchMatches();
@@ -693,17 +692,15 @@ async function syncTournament2MatchesTick(options = {}) {
 async function syncTournament2(options = {}) {
   const cfg = getTournament2SyncConfig();
   validateTournament2SyncConfig(cfg);
-  if (cfg.targetTournamentId !== TARGET_TOURNAMENT_ID) {
-    throw new Error(`Configuración inválida: targetTournamentId debe ser ${TARGET_TOURNAMENT_ID}`);
-  }
-  await assertFootballTargetTournament(TARGET_TOURNAMENT_ID);
+  const tournamentId = cfg.targetTournamentId;
+  await assertFootballTargetTournament(tournamentId);
   const selectedStep = options.step ? String(options.step).trim() : '';
   const steps = normalizeStepSelection(selectedStep);
   const runId = createRunId();
 
   const summary = {
     runId,
-    tournamentId: TARGET_TOURNAMENT_ID,
+    tournamentId,
     dryRun: options.dryRun === true,
     steps,
     totals: { created: 0, updated: 0, skipped: 0, errors: 0 },

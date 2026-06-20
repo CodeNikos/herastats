@@ -29,7 +29,7 @@ function parseArgs(argv) {
 }
 
 function printSummary(summary) {
-  console.log('Sync torneo 2 finalizada');
+  console.log('Sync football-data finalizada');
   console.log(`run_id: ${summary.runId}`);
   console.log(`tournament_id: ${summary.tournamentId}`);
   console.log(`dry_run: ${summary.dryRun ? 'true' : 'false'}`);
