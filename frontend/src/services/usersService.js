@@ -35,4 +35,24 @@ export const usersService = {
     const response = await api.delete(`/config/tournament/${tournamentId}/members/${userId}`);
     return response.data;
   },
+
+  async assignTournamentToken(userId, token) {
+    const response = await api.post(`/users/${userId}/tournament-tokens`, { token });
+    return response.data;
+  },
+
+  async updateTournamentToken(userId, tokenId, token) {
+    const response = await api.put(`/users/${userId}/tournament-tokens/${tokenId}`, { token });
+    return response.data;
+  },
+
+  async revokeTournamentToken(userId, tokenId) {
+    const response = await api.delete(`/users/${userId}/tournament-tokens/${tokenId}`);
+    return response.data;
+  },
+
+  async getUserTournamentTokens(userId) {
+    const response = await api.get(`/users/${userId}/tournament-tokens`);
+    return response.data;
+  },
 };

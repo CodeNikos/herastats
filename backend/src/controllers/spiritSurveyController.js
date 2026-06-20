@@ -184,6 +184,13 @@ const getGameSpiritScores = async (req, res) => {
       });
     }
 
+    if (!(await Game.tournamentAllowsSpiritSurvey(tournamentId))) {
+      return res.status(404).json({
+        success: false,
+        message: 'La encuesta de espíritu no aplica a este torneo'
+      });
+    }
+
     const rows = await Game.getSpiritSurveyResponsesByGameId(gameId);
     const byRated = new Map(rows.map((r) => [Number(r.rated_team_id), r]));
     const localId = game.local != null ? Number(game.local) : null;
@@ -235,6 +242,13 @@ const postSpiritSurveyManual = async (req, res) => {
     const access = await assertTournamentEditAccess(req, tournamentId);
     if (!access.ok) {
       return res.status(access.status).json({ success: false, message: access.message });
+    }
+
+    if (!(await Game.tournamentAllowsSpiritSurvey(tournamentId))) {
+      return res.status(400).json({
+        success: false,
+        message: 'La encuesta de espíritu no aplica a este torneo'
+      });
     }
 
     const respondingTeamId = parseInt(req.body?.responding_team_id, 10);
@@ -375,6 +389,13 @@ const getTournamentSpiritStats = async (req, res) => {
     const access = await assertTournamentEditAccess(req, tournamentId);
     if (!access.ok) {
       return res.status(access.status).json({ success: false, message: access.message });
+    }
+
+    if (!(await Game.tournamentAllowsSpiritSurvey(tournamentId))) {
+      return res.json({
+        success: true,
+        data: { spiritStats: [] }
+      });
     }
 
     const divisionRaw = req.query?.division;

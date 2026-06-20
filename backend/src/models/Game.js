@@ -5,6 +5,7 @@ const Phase = require('./Phase');
  * Modelo de persistencia del partido (tabla `game`, API GET/PUT/PATCH en `config`).
  * La pantalla de detalle es la SPA en `/game` (`frontend/src/pages/GamePages.js`); la navegación
  * de vuelta al calendario u otras rutas se define en el frontend, no en este módulo Node.
+ * Encuesta de espíritu: deshabilitada para torneos con sport_id = {@link Game.FOOTBALL_SPORT_ID} (fútbol).
  */
 class Game {
   static async createTable() {
@@ -710,7 +711,7 @@ class Game {
       FROM game_events e
       LEFT JOIN player p ON p.player_id = e.player_id
       WHERE e.game_id = $1
-        AND UPPER(TRIM(COALESCE(e.event_type, ''))) = 'GOAL'
+        AND UPPER(TRIM(COALESCE(e.event_type, ''))) IN ('GOAL', 'PENALTY', 'OWN_GOAL')
       GROUP BY scorer_tid
       `,
       [gid]
@@ -920,13 +921,12 @@ class Game {
         return { applied: false, reason: 'missing_teams' };
       }
 
-      const totals = await this.computeGoalTotalsForStandings(gid, client);
-      const lg = Number(totals.local_goals) || 0;
-      const vg = Number(totals.visitor_goals) || 0;
+      const totals = await Game.computeGoalTotalsFromEvents(gid, client);
+      const [lg, vg] = Game.scoreIntsForDb(totals.local_goals, totals.visitor_goals);
 
       await client.query(
-        `UPDATE game SET local_score = $1::text, visitor_score = $2::text WHERE game_id = $3 AND torneo_id = $4`,
-        [String(lg), String(vg), gid, tid]
+        `UPDATE game SET local_score = $1, visitor_score = $2 WHERE game_id = $3 AND torneo_id = $4`,
+        [lg, vg, gid, tid]
       );
 
       const bumpTeam = (teamId, winsInc, lossesInc) =>
@@ -965,6 +965,100 @@ class Game {
     }
   }
 
+  /** Victoria/derrota por marcador (fase de grupos). */
+  static _standingsWlDelta(localGoals, visitorGoals) {
+    const lg = Number(localGoals) || 0;
+    const vg = Number(visitorGoals) || 0;
+    if (lg > vg) return { localW: 1, localL: 0, visitorW: 0, visitorL: 1 };
+    if (vg > lg) return { localW: 0, localL: 1, visitorW: 1, visitorL: 0 };
+    return { localW: 0, localL: 0, visitorW: 0, visitorL: 0 };
+  }
+
+  /**
+   * Corrige wins/losses/games en `team` cuando cambia el marcador de un partido ya contabilizado.
+   */
+  static async reviseTeamStandingsAfterScoreChange(
+    gameId,
+    torneoId,
+    oldLocal,
+    oldVisitor,
+    newLocal,
+    newVisitor
+  ) {
+    const gid = Number(gameId);
+    const tid = Number(torneoId);
+    if (!Number.isFinite(gid) || gid <= 0 || !Number.isFinite(tid) || tid <= 0) {
+      return { applied: false, reason: 'invalid_ids' };
+    }
+    const oL = Number(oldLocal) || 0;
+    const oV = Number(oldVisitor) || 0;
+    const nL = Number(newLocal) || 0;
+    const nV = Number(newVisitor) || 0;
+    if (oL === nL && oV === nV) return { applied: false, reason: 'unchanged' };
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const gRes = await client.query(
+        `SELECT g.game_id, g."local", g.visitor, g.team_standings_recorded,
+                g.phas_num, p.phase_num, p.stage AS phase_name
+         FROM game g
+         INNER JOIN phases p ON p.phas_id = g.phas_id
+         WHERE g.game_id = $1 AND g.torneo_id = $2
+         FOR UPDATE OF g`,
+        [gid, tid]
+      );
+      const row = gRes.rows[0];
+      if (!row || row.team_standings_recorded !== true) {
+        await client.query('COMMIT');
+        return { applied: false, reason: 'not_recorded' };
+      }
+      if (!Game.isGroupPhaseGameRow(row)) {
+        await client.query('COMMIT');
+        return { applied: false, reason: 'not_group_phase' };
+      }
+
+      const localTeamId = row.local != null ? Number(row.local) : NaN;
+      const visitorTeamId = row.visitor != null ? Number(row.visitor) : NaN;
+      if (
+        !Number.isFinite(localTeamId) ||
+        localTeamId <= 0 ||
+        !Number.isFinite(visitorTeamId) ||
+        visitorTeamId <= 0
+      ) {
+        await client.query('ROLLBACK');
+        return { applied: false, reason: 'missing_teams' };
+      }
+
+      const oldD = Game._standingsWlDelta(oL, oV);
+      const newD = Game._standingsWlDelta(nL, nV);
+
+      const adjustTeam = async (teamId, gamesDelta, winsDelta, lossesDelta) => {
+        await client.query(
+          `UPDATE team SET
+             games = GREATEST(COALESCE(games, 0) + $3, 0),
+             wins = GREATEST(COALESCE(wins, 0) + $4, 0),
+             losses = GREATEST(COALESCE(losses, 0) + $5, 0)
+           WHERE team_id = $1 AND torneo_id = $2`,
+          [teamId, tid, gamesDelta, winsDelta, lossesDelta]
+        );
+      };
+
+      await adjustTeam(localTeamId, -1, -oldD.localW, -oldD.localL);
+      await adjustTeam(visitorTeamId, -1, -oldD.visitorW, -oldD.visitorL);
+      await adjustTeam(localTeamId, 1, newD.localW, newD.localL);
+      await adjustTeam(visitorTeamId, 1, newD.visitorW, newD.visitorL);
+
+      await client.query('COMMIT');
+      return { applied: true };
+    } catch (e) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw e;
+    } finally {
+      client.release();
+    }
+  }
+
   /**
    * Invoca el procedimiento almacenado `ps_game_upd(tourn_id, ga_num, phase_num)`:
    * estadísticas por grupo y posiciones en lienzos Principal / Ranked.
@@ -972,7 +1066,7 @@ class Game {
    *
    * @returns {Promise<{ ok: boolean, skipped?: boolean, reason?: string, ga_num?: number, phase_num?: number }>}
    */
-  static async runPsGameUpd(tournamentId, gameId) {
+  static async runPsGameUpd(tournamentId, gameId, options = {}) {
     const tid = Number(tournamentId);
     const gid = Number(gameId);
     if (!Number.isFinite(tid) || tid <= 0 || !Number.isFinite(gid) || gid <= 0) {
@@ -1000,7 +1094,7 @@ class Game {
         await client.query('ROLLBACK');
         return { ok: false, reason: 'no_game' };
       }
-      if (row.ps_game_upd_done === true) {
+      if (row.ps_game_upd_done === true && !options.force) {
         await client.query('COMMIT');
         return { ok: true, skipped: true };
       }
@@ -1037,12 +1131,14 @@ class Game {
 
   /** CALL o SELECT según cómo esté definido `ps_game_upd` en PostgreSQL. */
   static async _invokePsGameUpd(client, tournId, gaNum, phaseNum) {
+    await client.query('SAVEPOINT before_ps_game_upd');
     try {
       await client.query('CALL ps_game_upd($1::integer, $2::integer, $3::integer)', [
         tournId,
         gaNum,
         phaseNum
       ]);
+      await client.query('RELEASE SAVEPOINT before_ps_game_upd');
       return;
     } catch (e) {
       const msg = String(e?.message || '');
@@ -1051,7 +1147,11 @@ class Game {
         e?.code === '42809' ||
         /does not exist/i.test(msg) ||
         /no existe/i.test(msg);
-      if (!missing) throw e;
+      if (!missing) {
+        await client.query('ROLLBACK TO SAVEPOINT before_ps_game_upd').catch(() => {});
+        throw e;
+      }
+      await client.query('ROLLBACK TO SAVEPOINT before_ps_game_upd');
     }
     await client.query('SELECT ps_game_upd($1::integer, $2::integer, $3::integer)', [
       tournId,
@@ -1175,17 +1275,45 @@ class Game {
     }
 
     const totals = await this.computeGoalTotalsFromEvents(gameId);
+    const [lg, vg] = this.scoreIntsForDb(totals.local_goals, totals.visitor_goals);
     const upd = await pool.query(
       `UPDATE game SET local_score = $1, visitor_score = $2 WHERE game_id = $3 AND torneo_id = $4 RETURNING game_id`,
-      [String(totals.local_goals), String(totals.visitor_goals), gameId, torneoId]
+      [lg, vg, gameId, torneoId]
     );
     if (upd.rowCount === 0) return null;
     return this.findById(gameId);
   }
 
+  static FOOTBALL_SPORT_ID = 2;
+
+  /**
+   * Ultimate y otros deportes usan encuesta de espíritu; fútbol (sport_id = 2) no.
+   * @param {number|string|null|undefined} sportId
+   * @returns {boolean}
+   */
+  static sportAllowsSpiritSurvey(sportId) {
+    const n = Number(sportId);
+    if (!Number.isFinite(n) || n <= 0) return true;
+    return n !== Game.FOOTBALL_SPORT_ID;
+  }
+
+  /**
+   * @param {number|string} tournamentId
+   * @returns {Promise<boolean>}
+   */
+  static async tournamentAllowsSpiritSurvey(tournamentId) {
+    const tid = Number(tournamentId);
+    if (!Number.isFinite(tid) || tid <= 0) return false;
+    const TournamentConfig = require('./TournamentConfig');
+    const tournament = await TournamentConfig.findById(tid);
+    if (!tournament) return false;
+    return Game.sportAllowsSpiritSurvey(tournament.sport_id);
+  }
+
   /**
    * Solo en partidos Finished se permite registrar la encuesta de espíritu de forma manual
    * (organizador) desde la ficha del juego cuando no hubo correo o no se envió el enlace.
+   * No aplica a torneos de fútbol ({@link Game.FOOTBALL_SPORT_ID}).
    * @param {string|null|undefined} estado
    * @returns {boolean}
    */
@@ -1214,6 +1342,13 @@ class Game {
     if (v == null || v === '') return NaN;
     const n = parseInt(String(v).trim(), 10);
     return Number.isFinite(n) ? n : NaN;
+  }
+
+  /** Enteros para persistir marcador (compatible con columnas INTEGER o VARCHAR). */
+  static scoreIntsForDb(localGoals, visitorGoals) {
+    const lg = Math.max(0, Math.floor(Number(localGoals) || 0));
+    const vg = Math.max(0, Math.floor(Number(visitorGoals) || 0));
+    return [lg, vg];
   }
 
   static parsePositiveTeamIdField(v) {

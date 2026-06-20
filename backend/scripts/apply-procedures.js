@@ -3,7 +3,6 @@
  *
  * Uso:
  *   node scripts/apply-procedures.js
- *   ENV_FILE=.env.test node scripts/apply-procedures.js
  *   DATABASE_URL="postgresql://..." node scripts/apply-procedures.js
  *
  * Los archivos se ejecutan en orden alfabético (prefijo numérico recomendado).

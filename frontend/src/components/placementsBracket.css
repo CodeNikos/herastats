@@ -267,9 +267,11 @@
   --phase-columns: 4;
   --phase-width-reference: 3;
   --active-phase-count: 4;
+  --phase-column-gap: 2.6rem;
+  --phase-column-min: 220px;
   --phase-column-width: max(
-    220px,
-    calc((100cqw - (var(--phase-width-reference) - 1) * 2.6rem) / var(--phase-width-reference))
+    var(--phase-column-min),
+    calc((100cqw - (var(--phase-width-reference) - 1) * var(--phase-column-gap)) / var(--phase-width-reference))
   );
   --round-capacity-height: 700px;
   --match-card-height: 156px;
@@ -306,7 +308,7 @@
   display: grid;
   grid-template-columns: repeat(var(--active-phase-count), var(--phase-column-width));
   justify-content: center;
-  gap: 2.6rem;
+  gap: var(--phase-column-gap);
   width: 100%;
   min-width: min-content;
 }
@@ -464,6 +466,229 @@
   min-height: var(--match-card-height);
   height: auto;
   justify-self: stretch;
+}
+
+.placements-match-card--football-like {
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+  grid-template-rows: auto auto auto;
+  min-height: auto;
+  gap: 0.14rem;
+  overflow: visible;
+  padding: 0;
+  position: relative;
+  z-index: 2;
+}
+
+.placements-bracket-board--football-like .placements-bracket-svg {
+  z-index: 1;
+}
+
+.placements-bracket-board--football-like .placements-bracket-svg path {
+  stroke: #1f1f1f;
+  stroke-width: 1.5;
+}
+
+.placements-bracket-board--football-like {
+  min-height: 0;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  --phase-column-gap: 2.35rem;
+  --phase-column-min: 142px;
+}
+
+/* Lienzo principal fútbol: altura según contenido + 20px bajo el último partido */
+.placements-bracket-board--football-like.placements-bracket-board--main {
+  padding: 0.4rem 0.2rem 20px;
+}
+
+.placements-bracket-board--football-like.placements-bracket-board--main .placements-round {
+  min-height: 0;
+}
+
+.placements-bracket-board--football-like.placements-bracket-board--main .placements-round-matches {
+  min-height: 0;
+}
+
+.placements-phase-cell--football-like {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2rem;
+  padding: 0.42rem 0.55rem;
+  border: 1px solid #d5d9e3;
+  border-radius: 2px;
+  background: #f3f4f7;
+  color: #2f5fd0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.15;
+}
+
+.placements-football-card-meta {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0;
+  padding: 0 0.08rem;
+  font-size: 0.66rem;
+  line-height: 1.15;
+  color: #2f3545;
+  position: relative;
+  z-index: 2;
+  background: #fff;
+}
+
+.placements-football-card-date {
+  font-weight: 500;
+  color: #2f3545;
+}
+
+.placements-football-card-sep {
+  color: #2f3545;
+}
+
+.placements-football-card-city {
+  font-weight: 600;
+  color: #2f5fd0;
+}
+
+.placements-football-card-body {
+  border: 1px solid #c8cdd8;
+  background: #fff;
+  position: relative;
+  z-index: 2;
+}
+
+.placements-football-team-list {
+  display: grid;
+}
+
+.placements-football-team-row {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) 22px;
+  align-items: stretch;
+  min-height: 26px;
+  border-top: 1px solid #c8cdd8;
+}
+
+.placements-football-team-row:first-child {
+  border-top: none;
+}
+
+.placements-football-flag-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-right: 1px solid #c8cdd8;
+  background: #f7f8fa;
+  min-height: 26px;
+}
+
+.placements-football-flag-wrap img {
+  width: 14px;
+  height: 10px;
+  object-fit: cover;
+  border-radius: 1px;
+}
+
+.placements-football-team-label {
+  display: flex;
+  align-items: center;
+  padding: 0 0.34rem;
+  font-size: 0.86rem;
+  font-weight: 500;
+  color: #2f3545;
+  line-height: 1.15;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: #fff;
+}
+
+.placements-football-slot-input {
+  width: 100%;
+  min-width: 0;
+  border: none;
+  border-right: 1px solid #c8cdd8;
+  background: #fff;
+  padding: 0 0.42rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #2f3545;
+  outline: none;
+}
+
+.placements-football-slot-input:focus {
+  background: #f8faff;
+}
+
+.placements-football-score-box {
+  width: 22px;
+  min-width: 22px;
+  border: none;
+  border-left: 1px solid #c8cdd8;
+  background: #f2f3f6;
+  text-align: center;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #2f3545;
+  padding: 0;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.placements-football-score-box:disabled {
+  color: #2f3545;
+  opacity: 1;
+  -webkit-text-fill-color: #2f3545;
+}
+
+.placements-football-team-row--winner .placements-football-team-label,
+.placements-football-team-row--winner .placements-football-slot-input {
+  font-weight: 700;
+}
+
+.placements-football-team-row--loser .placements-football-team-label,
+.placements-football-team-row--loser .placements-football-slot-input {
+  opacity: 0.72;
+}
+
+.placements-football-card-edit-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+  padding: 0.12rem 0.08rem 0;
+}
+
+.placements-football-card-game-num {
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: #6b7288;
+}
+
+.placements-football-remove-btn {
+  border: 1px solid #e8c4d2;
+  background: #fff5f8;
+  color: #9a3d61;
+  border-radius: 4px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  padding: 0.1rem 0.38rem;
+  cursor: pointer;
+}
+
+.placements-match-card--football-like.placements-match-card--game-link {
+  cursor: pointer;
+}
+
+.placements-match-card--football-like.placements-match-card--game-link:hover .placements-football-card-body {
+  border-color: #9db4ea;
 }
 
 .placements-match-card-link-mode {

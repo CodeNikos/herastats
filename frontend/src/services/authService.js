@@ -54,4 +54,9 @@ export const authService = {
       throw error;
     }
   },
+
+  async getTournamentCreationEligibility() {
+    const response = await api.get('/auth/tournament-creation-eligibility');
+    return response.data;
+  },
 };

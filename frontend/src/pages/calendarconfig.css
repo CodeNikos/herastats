@@ -309,6 +309,46 @@
   margin-top: 22px;
 }
 
+.calendar-config-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 18px;
+  padding: 14px 12px;
+  border: 1px solid #c8c8c8;
+  border-radius: 10px;
+  background: #f9f9f9;
+}
+
+.calendar-config-pagination-info {
+  color: #404040;
+  font-size: 0.94rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.calendar-config-pagination-btn {
+  border: 1px solid #8f8f8f;
+  background: #ededed;
+  color: #2a2a2a;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.calendar-config-pagination-btn:hover:not(:disabled) {
+  background: #e2e2e2;
+}
+
+.calendar-config-pagination-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .calendar-config-empty {
   border: 1px dashed #a1a1a1;
   border-radius: 10px;

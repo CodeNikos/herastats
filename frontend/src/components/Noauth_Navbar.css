@@ -251,6 +251,11 @@
     transition: background-color 0.2s ease;
 }
 
+a.user-profile-logout-btn {
+    text-decoration: none;
+    box-sizing: border-box;
+}
+
 .user-profile-logout-btn:hover {
     background-color: var(--hera-menu-item-hover-bg);
     color: var(--hera-menu-item-hover-fg);

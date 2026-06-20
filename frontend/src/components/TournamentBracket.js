@@ -36,6 +36,8 @@ function TournamentBracket({
   activeBracketView = 'main',
   onBracketViewChange,
   hideBracketFilter = false,
+  /** Oculta ranked/posicionamiento en el selector (p. ej. torneo fútbol sport_id=2). */
+  hideRankedBracketView = false,
   /** Incrementar solo al cambiar torneo/ruta para mostrar spinner de carga inicial. */
   routeReloadNonce = 0
 }) {
@@ -262,8 +264,12 @@ function TournamentBracket({
               >
                 <option value="">--</option>
                 <option value="main">Principal</option>
-                <option value="ranked">Ranked / Posicionamiento</option>
-                <option value="all">Todos</option>
+                {hideRankedBracketView ? null : (
+                  <>
+                    <option value="ranked">Ranked / Posicionamiento</option>
+                    <option value="all">Todos</option>
+                  </>
+                )}
               </select>
             </div>
           ) : null}

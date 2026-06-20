@@ -74,6 +74,14 @@
   line-height: 1.2;
 }
 
+.tp_stat_card--yc .tp_stat_value {
+  color: #a16207;
+}
+
+.tp_stat_card--rc .tp_stat_value {
+  color: #b91c1c;
+}
+
 .tp_stat_label {
   display: block;
   margin-top: 4px;

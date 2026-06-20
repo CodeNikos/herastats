@@ -6,33 +6,97 @@
 
 .poolbrackets-page .brackets-main-canvas-block,
 .poolbrackets-page .brackets-ranked-canvas-block {
+  overflow: visible;
+}
+
+/* Card blanco: scroll horizontal aquí para que abarque todas las fases del lienzo */
+.poolbrackets-page .placements-bracket-root {
   overflow-x: auto;
   overflow-y: visible;
-  /* max-width en .brackets-content puede hacer el lienzo más ancho que la columna → scroll suave */
   -webkit-overflow-scrolling: touch;
+  max-width: 100%;
 }
 
 .poolbrackets-page .placements-bracket-board {
-  overflow-x: auto;
-  overflow-y: visible;
-  -webkit-overflow-scrolling: touch;
-  touch-action: pan-x pan-y;
-  /* Preferencia UX: filas de cada partido siguen una altura mínima cómoda; la tarjeta puede crecer */
+  overflow: visible;
+  width: max-content;
+  min-width: 100%;
+  min-height: 0;
+  height: auto;
+  touch-action: auto;
+  padding-bottom: 20px;
+  box-sizing: border-box;
+}
+
+.poolbrackets-page .placements-bracket-board.placements-bracket-board--football-like {
+  overflow: visible;
+  min-height: 0;
+}
+
+.poolbrackets-page .placements-bracket-stage {
+  width: max-content;
+  min-width: 100%;
+  max-width: none;
+}
+
+.poolbrackets-page .placements-phase-row,
+.poolbrackets-page .placements-content-row {
+  width: max-content;
+  min-width: 100%;
+}
+
+.poolbrackets-page .placements-bracket-board--football-like.placements-bracket-board--main {
+  padding: 0.4rem 0.2rem 20px;
+}
+
+/* Fútbol (sport_id=2): no sobrescribir — usa PlacementsBracket + placementsBracket.css */
+.poolbrackets-page .placements-bracket-board:not(.placements-bracket-board--football-like) {
   --match-card-height: clamp(154px, 22vw, 198px);
 }
 
+/* Lienzo fútbol en Pool: cards de 72px de alto (ancho sin cambios) */
+.poolbrackets-page .placements-bracket-board--football-like {
+  --match-card-height: 72px;
+}
+
+.poolbrackets-page .placements-match-card--football-like {
+  min-height: 72px;
+  height: 72px;
+  max-height: 72px;
+}
+
 @media (max-width: 1024px) {
+  .poolbrackets-page .brackets-content {
+    padding-inline: 12px;
+  }
+
+  .poolbrackets-page .placements-bracket-root {
+    padding: 0.75rem;
+  }
+
   .poolbrackets-page .brackets-main-canvas-block,
-  .poolbrackets-page .brackets-ranked-canvas-block {
-    overflow-x: auto;
+  .poolbrackets-page .brackets-ranked-canvas-block,
+  .poolbrackets-page .placements-bracket-board {
+    overflow: visible;
   }
 
   .poolbrackets-page .placements-bracket-board {
-    overflow-x: auto;
+    width: max-content;
+    min-width: min-content;
+    padding-inline: 0.35rem;
+  }
+
+  .poolbrackets-page .placements-round,
+  .poolbrackets-page .placements-round-matches {
+    min-height: 0;
+  }
+
+  .poolbrackets-page .placements-bracket-board:not(.placements-bracket-board--football-like) {
+    --round-capacity-height: auto;
   }
 }
 
-.poolbrackets-page .placements-round-matches {
+.poolbrackets-page .placements-round-matches:not(.placements-round-matches--ranked-gap-by-match) {
   grid-auto-rows: auto;
 }
 
@@ -66,7 +130,7 @@
   border-color: #3d52b8;
 }
 
-.poolbrackets-page .placements-match-card {
+.poolbrackets-page .placements-match-card:not(.placements-match-card--football-like) {
   /* Flex en lugar del grid genérico: reparte la altura mínima entre las dos filas de equipos
      para que marcadores / banderas queden al mismo nivel dentro de cada partido */
   display: flex;
@@ -89,20 +153,20 @@
   background: linear-gradient(180deg, #fff 0%, #fafbfd 100%);
 }
 
-.poolbrackets-page .placements-match-card .placements-team-list {
+.poolbrackets-page .placements-match-card:not(.placements-match-card--football-like) .placements-team-list {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
 }
 
-.poolbrackets-page .placements-match-card .placements-team-row {
+.poolbrackets-page .placements-match-card:not(.placements-match-card--football-like) .placements-team-row {
   flex: 1 1 0;
   min-height: calc(34px * var(--card-scale, 1));
   padding-block: calc(0.26rem * var(--card-scale, 1));
 }
 
-.poolbrackets-page .placements-match-card .placements-team-body {
+.poolbrackets-page .placements-match-card:not(.placements-match-card--football-like) .placements-team-body {
   justify-content: center;
   align-self: stretch;
 }

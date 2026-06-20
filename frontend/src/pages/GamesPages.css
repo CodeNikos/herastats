@@ -801,6 +801,102 @@
     line-height: 1.25;
 }
 
+/* Resumen fútbol — eventos a los lados, icono central */
+.game-football-summary {
+    max-width: 520px;
+    margin: 0 auto;
+    padding: 0.25rem 0 0.5rem;
+    background: transparent;
+}
+
+.game-football-summary-empty {
+    margin: 0;
+    text-align: center;
+    font-size: 0.92rem;
+    color: #64748b;
+}
+
+.game-football-summary-events {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+}
+
+.game-football-event-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 2.25rem minmax(0, 1fr);
+    gap: 0.5rem 0.65rem;
+    align-items: center;
+}
+
+.game-football-event-col {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    min-width: 0;
+}
+
+.game-football-event-col--home {
+    align-items: flex-end;
+    text-align: right;
+}
+
+.game-football-event-col--away {
+    align-items: flex-start;
+    text-align: left;
+}
+
+.game-football-event-col--icon {
+    align-items: center;
+    justify-content: center;
+}
+
+.game-football-event-line {
+    margin: 0;
+    font-size: 0.88rem;
+    line-height: 1.35;
+    color: #1e293b;
+    font-weight: 500;
+}
+
+.game-football-summary-icon {
+    display: block;
+    flex-shrink: 0;
+}
+
+.game-football-summary-icon--ball {
+    width: 1.15rem;
+    height: 1.15rem;
+    color: #334155;
+}
+
+.game-football-summary-icon--yellow {
+    width: 0.72rem;
+    height: 1.05rem;
+    border-radius: 2px;
+    background: #facc15;
+    border: 1px solid #ca8a04;
+}
+
+.game-football-summary-icon--red {
+    width: 0.72rem;
+    height: 1.05rem;
+    border-radius: 2px;
+    background: #ef4444;
+    border: 1px solid #b91c1c;
+}
+
+@media (max-width: 480px) {
+    .game-football-event-row {
+        grid-template-columns: minmax(0, 1fr) 1.75rem minmax(0, 1fr);
+        gap: 0.35rem 0.45rem;
+    }
+
+    .game-football-event-line {
+        font-size: 0.8rem;
+    }
+}
+
 /* --- Spirit Scores (pestaña Espíritu del partido) --- */
 .game-spirit-panel {
     max-width: 720px;

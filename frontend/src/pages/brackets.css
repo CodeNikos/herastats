@@ -45,6 +45,26 @@
   gap: 1rem;
 }
 
+/* /brackets: sin barra de scroll horizontal en el card del lienzo */
+.brackets-page:not(.poolbrackets-page) .brackets-main-canvas-block,
+.brackets-page:not(.poolbrackets-page) .brackets-ranked-canvas-block {
+  overflow: visible;
+}
+
+.brackets-page:not(.poolbrackets-page) .placements-bracket-root {
+  overflow-x: hidden;
+}
+
+.brackets-page:not(.poolbrackets-page) .placements-bracket-board {
+  overflow-x: visible;
+  overflow-y: visible;
+  min-width: 0;
+}
+
+.brackets-page:not(.poolbrackets-page) .placements-bracket-board--football-like {
+  overflow: visible;
+}
+
 .brackets-main-canvas-block,
 .brackets-ranked-canvas-block {
   display: grid;
@@ -59,4 +79,82 @@
   padding: 0 0.2rem;
   font-size: 0.95rem;
   color: #4b5270;
+}
+
+.brackets-best-third {
+  margin-bottom: 1.25rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid #d7d9df;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.brackets-best-third--error {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.brackets-best-third-title {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+  color: #222;
+}
+
+.brackets-best-third-hint {
+  margin: 0 0 0.85rem;
+  max-width: 52rem;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: #555;
+}
+
+.brackets-best-third-table-wrap {
+  overflow-x: auto;
+}
+
+.brackets-best-third-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.84rem;
+}
+
+.brackets-best-third-table th,
+.brackets-best-third-table td {
+  padding: 0.45rem 0.55rem;
+  border-bottom: 1px solid #e8eaef;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.brackets-best-third-table th {
+  font-weight: 600;
+  color: #4b5270;
+  background: #f8f9fb;
+}
+
+.brackets-best-third-slot {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.82rem;
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  background: #eef2ff;
+  color: #28345f;
+}
+
+.brackets-best-third-team {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.brackets-best-third-logo {
+  width: 1.25rem;
+  height: 1.25rem;
+  object-fit: contain;
+  border-radius: 2px;
+}
+
+.brackets-best-third-pending {
+  color: #94a3b8;
+  font-style: italic;
 }

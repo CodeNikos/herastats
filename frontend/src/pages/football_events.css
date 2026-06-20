@@ -1,0 +1,395 @@
+.football-events-page {
+  min-height: 100vh;
+  background: #eef1f7;
+}
+
+.football-events-topbar {
+  width: 100%;
+}
+
+.football-events-main {
+  width: 100%;
+  max-width: min(520px, 100%);
+  margin: 0 auto;
+  padding: 1.25rem 1rem 2.5rem;
+  box-sizing: border-box;
+}
+
+.football-events-header {
+  margin-bottom: 1rem;
+}
+
+.football-events-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.85rem;
+  font-size: 0.8125rem;
+  color: #334155;
+  text-decoration: none;
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+}
+
+.football-events-title {
+  margin: 0.75rem 0 0;
+  text-align: center;
+  font-size: clamp(1.25rem, 2.5vw, 1.5rem);
+  color: #1f2a44;
+}
+
+.football-events-matchup {
+  margin: 0.35rem 0 0;
+  text-align: center;
+  font-size: 0.9rem;
+  color: #64748b;
+}
+
+.football-events-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin: 1rem 0;
+}
+
+.football-events-tab {
+  flex: 1;
+  padding: 0.65rem 0.5rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.football-events-tab--active {
+  background: #1e3a5f;
+  border-color: #1e3a5f;
+  color: #fff;
+}
+
+.football-events-minute-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.football-events-minute-fields {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.football-events-minute-plus {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #475569;
+  line-height: 1;
+}
+
+.football-events-minute-input--added {
+  width: 5.5rem;
+}
+
+.football-events-minute-row label {
+  font-size: 0.85rem;
+  color: #475569;
+  white-space: nowrap;
+}
+
+.football-events-minute-input {
+  width: 4.5rem;
+  padding: 0.45rem 0.5rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 1rem;
+}
+
+.football-events-players {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-height: 220px;
+  overflow-y: auto;
+  margin-bottom: 1rem;
+  padding: 0.25rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.football-events-player-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.football-events-player-btn:hover {
+  background: #f1f5f9;
+}
+
+.football-events-player-btn--selected {
+  border-color: #3b82f6;
+  background: #eff6ff;
+}
+
+.football-events-player-num {
+  min-width: 1.75rem;
+  font-weight: 700;
+  color: #1e3a5f;
+}
+
+.football-events-actions {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.football-events-action-btn {
+  padding: 0.65rem 0.5rem;
+  border: none;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  color: #fff;
+}
+
+.football-events-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.football-events-action-btn--goal {
+  background: #15803d;
+}
+
+.football-events-action-btn--og {
+  background: #b45309;
+}
+
+.football-events-action-btn--yc {
+  background: #ca8a04;
+  color: #1f2937;
+}
+
+.football-events-action-btn--rc {
+  background: #dc2626;
+}
+
+.football-events-action-btn--penalty {
+  background: #1d4ed8;
+  grid-column: span 2;
+}
+
+.football-events-list-title {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+  color: #1f2a44;
+}
+
+.football-events-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.football-events-list-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0.65rem;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  flex-wrap: wrap;
+}
+
+.football-events-list-item--editing {
+  align-items: stretch;
+  padding: 0.75rem;
+}
+
+.football-events-list-actions {
+  display: flex;
+  gap: 0.35rem;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.football-events-list-btn {
+  padding: 0.25rem 0.5rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 5px;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.football-events-list-btn:hover:not(:disabled) {
+  background: #e2e8f0;
+}
+
+.football-events-list-btn--danger {
+  color: #b91c1c;
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.football-events-list-btn--danger:hover:not(:disabled) {
+  background: #fee2e2;
+}
+
+.football-events-list-btn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.football-events-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.football-events-minute-row--compact {
+  margin-bottom: 0;
+}
+
+.football-events-edit-label {
+  font-size: 0.78rem;
+  color: #475569;
+  font-weight: 600;
+}
+
+.football-events-edit-select {
+  width: 100%;
+  padding: 0.45rem 0.5rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  background: #fff;
+}
+
+.football-events-edit-tabs {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.football-events-edit-tab {
+  flex: 1;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #f8fafc;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.football-events-edit-tab--active {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+  color: #fff;
+}
+
+.football-events-edit-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.15rem;
+}
+
+.football-events-edit-btn {
+  flex: 1;
+  padding: 0.45rem 0.65rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.football-events-edit-btn--save {
+  border: 1px solid #15803d;
+  background: #dcfce7;
+  color: #14532d;
+}
+
+.football-events-edit-btn--cancel {
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #475569;
+}
+
+.football-events-edit-btn:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.football-events-list-minute {
+  min-width: 2.25rem;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.football-events-list-name {
+  flex: 1;
+  min-width: 0;
+}
+
+.football-events-list-badge {
+  font-weight: 700;
+  font-size: 0.8rem;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  background: #f1f5f9;
+  color: #334155;
+}
+
+.football-events-icon-ball {
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #fff 0%, #1f2937 45%, #111 100%);
+  flex-shrink: 0;
+}
+
+.football-events-icon-card {
+  width: 0.65rem;
+  height: 0.95rem;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.football-events-icon-card--yellow {
+  background: #facc15;
+  border: 1px solid #ca8a04;
+}
+
+.football-events-icon-card--red {
+  background: #ef4444;
+  border: 1px solid #b91c1c;
+}
+
+.football-events-state {
+  text-align: center;
+  padding: 2rem 1rem;
+  color: #64748b;
+}
+
+.football-events-state-error {
+  color: #b91c1c;
+}

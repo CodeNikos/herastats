@@ -12,10 +12,19 @@ const GameRankView = require('../models/GameRankView');
 const Placement = require('../models/Placement');
 const { deleteCloudinaryImageByUrl } = require('./uploadController');
 const { maybeSendSpiritInvitesAfterGameFinished, isFinishedEstado } = require('../services/spiritSurveyService');
-const { assertGameAcceptsEventType } = require('../services/gameEventGuards');
-const { finalizeGameScoresAndStandingsHooks } = require('./config/finalizeHooks');
-const { canListAllTournaments } = require('../utils/userRoles');
-const { shouldRecordFinishedMarker: shouldRecordFinishedMarkerCanonical } = require('../utils/gameEstado');
+const { assertGameAcceptsEventType, resolveTournamentSportId } = require('../services/gameEventGuards');
+const {
+  FOOTBALL_POST_MATCH_EVENT_TYPES,
+  FOOTBALL_SCORING_EVENT_TYPES,
+  normalizeFootballEventTypeInput,
+  normalizeFootballMinuteToEventTime,
+  isAdminOrSuperuserRole
+} = require('../utils/footballEventTypes');
+const { finalizeGameScoresAndStandingsHooks, propagateFinishedGameStats } = require('./config/finalizeHooks');
+const { isFinishedGameEstado, shouldRecordFinishedMarker: shouldRecordFinishedMarkerCanonical } = require('../utils/gameEstado');
+const { canListAllTournaments, normalizeRole } = require('../utils/userRoles');
+const TournamentCreationToken = require('../models/TournamentCreationToken');
+const Sport = require('../models/Sport');
 
 function triggerSpiritSurveyIfFinished(tournamentId, gameId, estadoValue) {
   if (!isFinishedEstado(estadoValue)) return;
@@ -78,7 +87,7 @@ function formatGameClockSecondsToHms(totalSec) {
  */
 const createTournament = async (req, res) => {
   try {
-    const { torn_name, torn_year, pais } = req.body;
+    const { torn_name, torn_year, pais, sport_id: sportIdRaw } = req.body;
     
     // Obtener el email del usuario autenticado desde req.user (agregado por el middleware)
     const userEmail = req.user?.email;
@@ -107,6 +116,22 @@ const createTournament = async (req, res) => {
       });
     }
 
+    const sportId = Number(sportIdRaw);
+    if (!Number.isInteger(sportId) || sportId <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Debes seleccionar un deporte válido'
+      });
+    }
+
+    const sport = await Sport.findById(sportId);
+    if (!sport) {
+      return res.status(400).json({
+        success: false,
+        message: 'El deporte seleccionado no existe'
+      });
+    }
+
     // Validar que el año sea un número válido
     const year = parseInt(torn_year);
     if (isNaN(year) || year < 1900 || year > 2100) {
@@ -114,6 +139,19 @@ const createTournament = async (req, res) => {
         success: false,
         message: 'El año debe ser un número válido entre 1900 y 2100'
       });
+    }
+
+    // Los administradores necesitan un token asignado por el superusuario.
+    const userRole = normalizeRole(req.user?.role);
+    if (userRole === 'admin') {
+      const hasToken = await TournamentCreationToken.hasAvailableForUser(req.user.id);
+      if (!hasToken) {
+        return res.status(403).json({
+          success: false,
+          message:
+            'No tienes un token de creación de torneo. Solicita uno al superusuario del sistema.'
+        });
+      }
     }
 
     // Preparar los datos para el modelo
@@ -124,7 +162,8 @@ const createTournament = async (req, res) => {
       country: pais ? pais.trim() : null,
       location: pais ? pais.trim() : null, // Usar país como ubicación si no se proporciona
       image_url: req.body.image_url || null,
-      created_by: userEmail // Email del usuario autenticado
+      created_by: userEmail,
+      sport_id: sportId
     };
 
     // Crear la configuración del torneo
@@ -138,6 +177,20 @@ const createTournament = async (req, res) => {
       });
     }
 
+    if (userRole === 'admin') {
+      const consumed = await TournamentCreationToken.consumeOldestAvailable({
+        userId: req.user.id,
+        torneoId: newTournament.torneo_id
+      });
+      if (!consumed) {
+        console.error(
+          '[createTournament] Torneo creado sin consumir token para admin',
+          req.user.id,
+          newTournament.torneo_id
+        );
+      }
+    }
+
     res.status(201).json({
       success: true,
       message: 'Configuración del torneo guardada exitosamente',
@@ -149,6 +202,8 @@ const createTournament = async (req, res) => {
           country: newTournament.country,
           location: newTournament.location,
           image_url: newTournament.image_url,
+          sport_id: newTournament.sport_id,
+          sport_name: sport.name,
           created_by: newTournament.created_by,
           created_at: newTournament.created_at
         }
@@ -1228,9 +1283,15 @@ const updateBracketGame = async (req, res) => {
     }
 
     let payloadBracketGame = updatedWithSequence || updated;
-    if (hasEstadoField && shouldRecordFinishedMarker(String(estadoBody ?? '').trim())) {
+    const estadoTrimUpd = hasEstadoField ? String(estadoBody ?? '').trim() : '';
+    if (hasEstadoField && shouldRecordFinishedMarker(estadoTrimUpd)) {
       await finalizeGameScoresAndStandingsHooks(id, gameId);
       payloadBracketGame = (await Game.findById(Number(gameId))) || payloadBracketGame;
+    } else if (
+      (hasLocalScoreField || hasVisitorScoreField) &&
+      isFinishedGameEstado(payloadBracketGame?.estado)
+    ) {
+      await propagateFinishedGameStats(id, gameId, existing, payloadBracketGame);
     }
 
     return res.json({
@@ -2319,18 +2380,58 @@ const assertTeamBelongsToTournament = async (teamIdRaw, tournamentIdRaw) => {
 };
 
 /**
+ * Campos derivados para eventos de fútbol post-partido (gol, tarjetas, etc.).
+ */
+function resolveFootballPostMatchEventFields(game, normalizedType, playerTeamId) {
+  let goalsVal = 0;
+  let yellowcard = 0;
+  let redcard = 0;
+  let teamIdForEvent = null;
+
+  if (normalizedType === 'YELLOW_CARD') {
+    yellowcard = 1;
+  } else if (normalizedType === 'RED_CARD') {
+    redcard = 1;
+  } else if (normalizedType === 'GOAL' || normalizedType === 'PENALTY') {
+    goalsVal = 1;
+    teamIdForEvent = playerTeamId;
+  } else if (normalizedType === 'OWN_GOAL') {
+    goalsVal = 1;
+    const localId = game.local != null ? Number(game.local) : null;
+    const visitorId = game.visitor != null ? Number(game.visitor) : null;
+    if (localId != null && playerTeamId === localId && visitorId != null) {
+      teamIdForEvent = visitorId;
+    } else if (visitorId != null && playerTeamId === visitorId && localId != null) {
+      teamIdForEvent = localId;
+    } else {
+      teamIdForEvent = playerTeamId;
+    }
+  }
+
+  return { goalsVal, yellowcard, redcard, teamIdForEvent };
+}
+
+async function syncFootballScoresAfterEventChange(tournamentId, gameId) {
+  const gameBefore = await Game.findById(gameId);
+  await Game.refreshScoresFromGoalEvents(gameId);
+  const gameAfter = await Game.findById(gameId);
+  await propagateFinishedGameStats(tournamentId, gameId, gameBefore, gameAfter);
+}
+
+/**
  * Crear un evento (POST o fila importada). Lanza Error con statusCode.
  */
 const createGameEventCore = async (tournamentId, gameId, userId, body, options = {}) => {
   const deferScoreSync = options.deferScoreSync === true;
+  const userRole = options.userRole ?? null;
   const { event_time, player_id, goals, assists, event_type, team_id } = body;
 
   if (event_time == null || String(event_time).trim() === '') {
     throw httpGameEventError(400, 'event_time es obligatorio');
   }
 
-  let normalizedType = String(event_type || '').trim().toUpperCase();
-  /* Aceptar variantes triviales antes de whitelist (solo TIMEOUT suele tener guión o espacios por copiar/pegar). */
+  let normalizedType = normalizeFootballEventTypeInput(event_type);
+  if (!normalizedType) normalizedType = String(event_type || '').trim().toUpperCase();
   const typeCompact = normalizedType.replace(/[\s-]+/g, '');
   if (typeCompact === 'TIMEOUT') normalizedType = 'TIMEOUT';
 
@@ -2343,12 +2444,16 @@ const createGameEventCore = async (tournamentId, gameId, userId, body, options =
     'JUEGO EN PAUSA',
     'JUEGO REANUDADO',
     'TIMEOUT',
-    'JUEGO FINALIZADO'
+    'JUEGO FINALIZADO',
+    'OWN_GOAL',
+    'YELLOW_CARD',
+    'RED_CARD',
+    'PENALTY'
   ]);
   if (!allowedEventTypes.has(normalizedType)) {
     throw httpGameEventError(
       400,
-      'event_type no reconocido. Valores permitidos: START, GOAL, AST, HALF, BREAK, Juego en pausa, Juego reanudado, TIMEOUT y Juego finalizado.'
+      'event_type no reconocido. Valores permitidos: START, GOAL, AST, OWN_GOAL, YELLOW_CARD, RED_CARD, PENALTY, HALF, BREAK, Juego en pausa, Juego reanudado, TIMEOUT y Juego finalizado.'
     );
   }
 
@@ -2357,7 +2462,8 @@ const createGameEventCore = async (tournamentId, gameId, userId, body, options =
     throw httpGameEventError(404, 'Partido no encontrado en este torneo');
   }
 
-  await assertGameAcceptsEventType(gameId, game, normalizedType);
+  const tournamentSportId = await resolveTournamentSportId(tournamentId);
+  await assertGameAcceptsEventType(gameId, game, normalizedType, { userRole, tournamentSportId });
 
   if (normalizedType === 'TIMEOUT') {
     const teamIdNum = await assertTeamBelongsToTournament(team_id, tournamentId);
@@ -2495,6 +2601,39 @@ const createGameEventCore = async (tournamentId, gameId, userId, body, options =
     throw httpGameEventError(400, 'El jugador no tiene equipo asignado válido en el torneo');
   }
 
+  if (FOOTBALL_POST_MATCH_EVENT_TYPES.has(normalizedType) && tournamentSportId === 2) {
+    const eventTimeStored =
+      tournamentSportId === 2
+        ? normalizeFootballMinuteToEventTime(event_time)
+        : String(event_time).trim();
+
+    const { goalsVal, yellowcard, redcard, teamIdForEvent } = resolveFootballPostMatchEventFields(
+      game,
+      normalizedType,
+      playerTeamId
+    );
+
+    const createdFootball = await GameEvent.create({
+      game_id: gameId,
+      tourn_id: tournamentId,
+      event_time: eventTimeStored,
+      player_id: playerIdNum,
+      goals: goalsVal,
+      assists: 0,
+      event_type: normalizedType,
+      user_id: userId,
+      team_id: teamIdForEvent,
+      yellowcard,
+      redcard
+    });
+
+    if (FOOTBALL_SCORING_EVENT_TYPES.has(normalizedType) && !deferScoreSync) {
+      await syncFootballScoresAfterEventChange(tournamentId, gameId);
+    }
+
+    return createdFootball;
+  }
+
   let goalsVal = goals !== undefined && goals !== null ? parseInt(goals, 10) : NaN;
   let assistsVal = assists !== undefined && assists !== null ? parseInt(assists, 10) : NaN;
   if (!Number.isFinite(goalsVal)) goalsVal = normalizedType === 'GOAL' ? 1 : 0;
@@ -2514,7 +2653,10 @@ const createGameEventCore = async (tournamentId, gameId, userId, body, options =
   });
 
   if (normalizedType === 'GOAL' && !deferScoreSync) {
+    const gameBefore = await Game.findById(gameId);
     await Game.refreshScoresFromGoalEvents(gameId);
+    const gameAfter = await Game.findById(gameId);
+    await propagateFinishedGameStats(tournamentId, gameId, gameBefore, gameAfter);
   }
 
   return created;
@@ -2670,7 +2812,10 @@ const bulkImportGameEvents = async (req, res) => {
     const failed = results.filter((r) => !r.success);
     if (imported > 0) {
       try {
+        const gameAfter = await Game.findById(gameId);
         await Game.refreshScoresFromGoalEvents(gameId);
+        const gameRefreshed = await Game.findById(gameId);
+        await propagateFinishedGameStats(tournamentId, gameId, gameAfter, gameRefreshed);
       } catch (syncErr) {
         console.error('Error sincronizando marcador tras importar eventos:', syncErr);
       }
@@ -2693,6 +2838,205 @@ const bulkImportGameEvents = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Error al importar eventos',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+/**
+ * Actualizar evento de fútbol post-partido.
+ * PATCH /api/config/tournament/:id/games/:gameId/events/:eventId
+ */
+const updateGameEvent = async (req, res) => {
+  try {
+    const tournamentId = parseInt(req.params.id, 10);
+    const gameId = parseInt(req.params.gameId, 10);
+    const eventId = parseInt(req.params.eventId, 10);
+    const userId = req.user?.id;
+    const userRole = req.user?.role;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'Usuario no autenticado' });
+    }
+    if (
+      !Number.isFinite(tournamentId) ||
+      tournamentId <= 0 ||
+      !Number.isFinite(gameId) ||
+      gameId <= 0 ||
+      !Number.isFinite(eventId) ||
+      eventId <= 0
+    ) {
+      return res.status(400).json({ success: false, message: 'Identificadores inválidos' });
+    }
+    if (!isAdminOrSuperuserRole(userRole)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Solo administradores y superusuarios pueden editar eventos de fútbol'
+      });
+    }
+
+    const tournamentSportId = await resolveTournamentSportId(tournamentId);
+    if (tournamentSportId !== 2) {
+      return res.status(400).json({ success: false, message: 'Edición no disponible para este deporte' });
+    }
+
+    const existing = await GameEvent.findByIdForGame(eventId, gameId, tournamentId);
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Evento no encontrado' });
+    }
+
+    const existingType = String(existing.event_type || '').trim().toUpperCase();
+    if (!FOOTBALL_POST_MATCH_EVENT_TYPES.has(existingType)) {
+      return res.status(400).json({ success: false, message: 'Solo se pueden editar eventos de fútbol post-partido' });
+    }
+
+    const { event_time, player_id, event_type } = req.body || {};
+    if (event_time == null || String(event_time).trim() === '') {
+      return res.status(400).json({ success: false, message: 'event_time es obligatorio' });
+    }
+
+    let normalizedType = normalizeFootballEventTypeInput(event_type);
+    if (!normalizedType) normalizedType = String(event_type || existing.event_type || '').trim().toUpperCase();
+    if (!FOOTBALL_POST_MATCH_EVENT_TYPES.has(normalizedType)) {
+      return res.status(400).json({ success: false, message: 'event_type no válido para fútbol' });
+    }
+
+    const game = await Game.findById(gameId);
+    if (!game || Number(game.torneo_id) !== tournamentId) {
+      return res.status(404).json({ success: false, message: 'Partido no encontrado en este torneo' });
+    }
+
+    await assertGameAcceptsEventType(gameId, game, normalizedType, { userRole, tournamentSportId });
+
+    if (player_id == null || player_id === '') {
+      return res.status(400).json({ success: false, message: 'player_id es obligatorio' });
+    }
+    const playerIdNum = parseInt(player_id, 10);
+    if (!Number.isFinite(playerIdNum) || playerIdNum <= 0) {
+      return res.status(400).json({ success: false, message: 'player_id inválido' });
+    }
+
+    const checkPlayer = await pool.query(
+      `SELECT p.player_id, p.team_id
+       FROM player p
+       INNER JOIN team t ON t.team_id = p.team_id
+       WHERE p.player_id = $1 AND t.torneo_id = $2`,
+      [playerIdNum, tournamentId]
+    );
+    if (checkPlayer.rows.length === 0) {
+      return res.status(400).json({ success: false, message: 'El jugador no pertenece a este torneo' });
+    }
+
+    const playerTeamId = Number(checkPlayer.rows[0].team_id);
+    if (!Number.isFinite(playerTeamId) || playerTeamId <= 0) {
+      return res.status(400).json({ success: false, message: 'El jugador no tiene equipo asignado válido' });
+    }
+
+    const eventTimeStored = normalizeFootballMinuteToEventTime(event_time);
+    const { goalsVal, yellowcard, redcard, teamIdForEvent } = resolveFootballPostMatchEventFields(
+      game,
+      normalizedType,
+      playerTeamId
+    );
+
+    const wasScoring = FOOTBALL_SCORING_EVENT_TYPES.has(existingType);
+    const isScoring = FOOTBALL_SCORING_EVENT_TYPES.has(normalizedType);
+
+    const updated = await GameEvent.updateById(eventId, {
+      event_time: eventTimeStored,
+      player_id: playerIdNum,
+      goals: goalsVal,
+      assists: 0,
+      event_type: normalizedType,
+      team_id: teamIdForEvent,
+      yellowcard,
+      redcard
+    });
+
+    if (wasScoring || isScoring) {
+      await syncFootballScoresAfterEventChange(tournamentId, gameId);
+    }
+
+    return res.json({
+      success: true,
+      message: 'Evento actualizado',
+      data: { event: updated }
+    });
+  } catch (error) {
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ success: false, message: error.message });
+    }
+    console.error('Error en updateGameEvent:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error al actualizar el evento',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+/**
+ * Eliminar evento de fútbol post-partido.
+ * DELETE /api/config/tournament/:id/games/:gameId/events/:eventId
+ */
+const deleteGameEvent = async (req, res) => {
+  try {
+    const tournamentId = parseInt(req.params.id, 10);
+    const gameId = parseInt(req.params.gameId, 10);
+    const eventId = parseInt(req.params.eventId, 10);
+    const userRole = req.user?.role;
+
+    if (!req.user?.id) {
+      return res.status(401).json({ success: false, message: 'Usuario no autenticado' });
+    }
+    if (
+      !Number.isFinite(tournamentId) ||
+      tournamentId <= 0 ||
+      !Number.isFinite(gameId) ||
+      gameId <= 0 ||
+      !Number.isFinite(eventId) ||
+      eventId <= 0
+    ) {
+      return res.status(400).json({ success: false, message: 'Identificadores inválidos' });
+    }
+    if (!isAdminOrSuperuserRole(userRole)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Solo administradores y superusuarios pueden eliminar eventos de fútbol'
+      });
+    }
+
+    const tournamentSportId = await resolveTournamentSportId(tournamentId);
+    if (tournamentSportId !== 2) {
+      return res.status(400).json({ success: false, message: 'Eliminación no disponible para este deporte' });
+    }
+
+    const existing = await GameEvent.findByIdForGame(eventId, gameId, tournamentId);
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Evento no encontrado' });
+    }
+
+    const existingType = String(existing.event_type || '').trim().toUpperCase();
+    if (!FOOTBALL_POST_MATCH_EVENT_TYPES.has(existingType)) {
+      return res.status(400).json({ success: false, message: 'Solo se pueden eliminar eventos de fútbol post-partido' });
+    }
+
+    const wasScoring = FOOTBALL_SCORING_EVENT_TYPES.has(existingType);
+    const deleted = await GameEvent.deleteById(eventId);
+    if (!deleted) {
+      return res.status(404).json({ success: false, message: 'Evento no encontrado' });
+    }
+
+    if (wasScoring) {
+      await syncFootballScoresAfterEventChange(tournamentId, gameId);
+    }
+
+    return res.json({ success: true, message: 'Evento eliminado' });
+  } catch (error) {
+    console.error('Error en deleteGameEvent:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error al eliminar el evento',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
@@ -2723,7 +3067,9 @@ const createGameEvent = async (req, res) => {
       });
     }
 
-    const row = await createGameEventCore(tournamentId, gameId, userId, req.body);
+    const row = await createGameEventCore(tournamentId, gameId, userId, req.body, {
+      userRole: req.user?.role
+    });
 
     return res.status(201).json({
       success: true,
@@ -2809,11 +3155,19 @@ const getTournamentPlayerEventStats = async (req, res) => {
     const groupPhaseOnly = scopeRaw === 'groups' || scopeRaw === 'group' || scopeRaw === 'group_phase';
 
     const divisions = await Game.listDistinctDivisions(tournamentId);
-    const rows = await GameEvent.aggregatePlayerStatsByTournament(tournamentId, {
-      topOnly: top,
-      division: top ? null : division,
-      groupPhaseOnly: top ? false : groupPhaseOnly
-    });
+    const sportId = await resolveTournamentSportId(tournamentId);
+    const rows =
+      sportId === 2
+        ? await GameEvent.aggregateFootballPlayerStatsByTournament(tournamentId, {
+            topOnly: top,
+            division: top ? null : division,
+            groupPhaseOnly: top ? false : groupPhaseOnly
+          })
+        : await GameEvent.aggregatePlayerStatsByTournament(tournamentId, {
+            topOnly: top,
+            division: top ? null : division,
+            groupPhaseOnly: top ? false : groupPhaseOnly
+          });
 
     return res.json({
       success: true,
@@ -2950,6 +3304,8 @@ module.exports = {
   createPlayer,
   createPlayersBulk,
   createGameEvent,
+  updateGameEvent,
+  deleteGameEvent,
   getGameEvents,
   getGameTimeoutCounts,
   getTournamentPlacements,

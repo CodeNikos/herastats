@@ -4,6 +4,9 @@ import './GamesPages.css';
 import GamePhaseClockDisplay from '../components/GamePhaseClockDisplay';
 import Navbar from '../components/navbar';
 import Noauth_Navbar from '../components/noauth_Navbar';
+import SeoHead from '../components/SeoHead';
+import { DEFAULT_SITE_TITLE } from '../config/siteConfig';
+import { buildSportsEventJsonLd } from '../utils/seoJsonLd';
 import { useAuth } from '../hooks/useAuth';
 import { useGameMatchScore } from '../hooks/useGameMatchScore';
 import { useGamePhaseClock } from '../hooks/useGamePhaseClock';
@@ -28,6 +31,13 @@ import {
   normalizeTournamentIdForCoherence
 } from '../utils/tournamentSync';
 import { goalTotalsFromTimelineEvents } from '../utils/goalTotalsFromTimeline';
+import {
+  FOOTBALL_SPORT_ID,
+  footballEventAbbrev,
+  formatFootballEventMinute,
+  parseFootballMinuteSort
+} from '../utils/footballEventTypes';
+import { PiSoccerBallFill } from "react-icons/pi";
 
 /** Estado del partido con variantes habituales de la API ({estado}/{Estado}). */
 const gameEstadoRaw = (row) => {
@@ -421,6 +431,165 @@ const formatTimelineClock = (eventTimeStr) => {
   return `${m}:${String(s).padStart(2, '0')}`;
 };
 
+const FOOTBALL_TIMELINE_TYPES = new Set(['GOAL', 'OWN_GOAL', 'YELLOW_CARD', 'RED_CARD', 'PENALTY']);
+
+/**
+ * Línea de tiempo para fútbol: goles, autogoles, tarjetas y penales.
+ */
+const buildFootballTimelineItems = (events, localId, visitorId, homeTeamName, awayTeamName) => {
+  const sorted = [...(events || [])].sort((a, b) => Number(a.event_id) - Number(b.event_id));
+  let homeScore = 0;
+  let awayScore = 0;
+  const items = [];
+
+  const benefitSide = (teamId) => {
+    const tid = teamId != null ? Number(teamId) : NaN;
+    if (visitorId != null && Number.isFinite(tid) && tid === Number(visitorId)) return 'away';
+    if (localId != null && Number.isFinite(tid) && tid === Number(localId)) return 'home';
+    return 'neutral';
+  };
+
+  for (const ev of sorted) {
+    const ty = String(ev.event_type || '').trim().toUpperCase();
+    if (ty === 'JUEGO FINALIZADO') {
+      items.push({
+        key: `finished-${ev.event_id}`,
+        kind: 'meta',
+        timeLabel: formatTimelineClock(ev.event_time),
+        lineMain: 'Juego finalizado',
+        lineSub: null,
+        homeScore,
+        awayScore,
+        side: 'neutral'
+      });
+      continue;
+    }
+    if (!FOOTBALL_TIMELINE_TYPES.has(ty)) continue;
+
+    const playerName = ev.player_name || '—';
+    const abbrev = footballEventAbbrev(ty);
+    const timeLabel = formatFootballEventMinute(ev.event_time);
+
+    if (ty === 'GOAL' || ty === 'OWN_GOAL' || ty === 'PENALTY') {
+      const benefitTeamId =
+        ev.team_id != null && ev.team_id !== ''
+          ? Number(ev.team_id)
+          : ev.player_team_id != null
+            ? Number(ev.player_team_id)
+            : NaN;
+      if (visitorId != null && Number.isFinite(benefitTeamId) && benefitTeamId === Number(visitorId)) {
+        awayScore += 1;
+      } else if (localId != null && Number.isFinite(benefitTeamId) && benefitTeamId === Number(localId)) {
+        homeScore += 1;
+      }
+    }
+
+    const side = benefitSide(
+      ev.team_id != null && ev.team_id !== ''
+        ? ev.team_id
+        : ty === 'GOAL' || ty === 'PENALTY'
+          ? ev.player_team_id
+          : null
+    );
+
+    const lineSubByType = {
+      GOAL: 'Gol',
+      OWN_GOAL: 'Autogol',
+      PENALTY: 'Penal',
+      YELLOW_CARD: 'Tarjeta amarilla',
+      RED_CARD: 'Tarjeta roja'
+    };
+
+    items.push({
+      key: `fb-${ev.event_id}`,
+      kind: ty === 'YELLOW_CARD' || ty === 'RED_CARD' ? 'card' : 'goal',
+      timeLabel,
+      lineMain: `${playerName} (${abbrev})`,
+      lineSub: lineSubByType[ty] || null,
+      homeScore,
+      awayScore,
+      side
+    });
+  }
+
+  return items;
+};
+
+const FOOTBALL_SUMMARY_GROUP_DEFS = [
+  { key: 'scoring', types: ['GOAL', 'PENALTY', 'OWN_GOAL'], icon: 'ball' },
+  { key: 'yellow', types: ['YELLOW_CARD'], icon: 'yellow' },
+  { key: 'red', types: ['RED_CARD'], icon: 'red' }
+];
+
+function resolveFootballEventSide(ev, eventType, localId, visitorId) {
+  const ty = String(eventType || '').trim().toUpperCase();
+  let tid = NaN;
+  if (ty === 'GOAL' || ty === 'PENALTY') {
+    tid =
+      ev.player_team_id != null
+        ? Number(ev.player_team_id)
+        : ev.team_id != null
+          ? Number(ev.team_id)
+          : NaN;
+  } else if (ty === 'OWN_GOAL') {
+    tid = ev.team_id != null ? Number(ev.team_id) : NaN;
+  } else {
+    tid = ev.player_team_id != null ? Number(ev.player_team_id) : NaN;
+  }
+  if (visitorId != null && Number.isFinite(tid) && tid === Number(visitorId)) return 'away';
+  if (localId != null && Number.isFinite(tid) && tid === Number(localId)) return 'home';
+  return null;
+}
+
+function footballSummaryLineLabel(ev, eventType) {
+  const name = String(ev.player_name || '—').trim() || '—';
+  const min = formatFootballEventMinute(ev.event_time);
+  const ty = String(eventType || '').trim().toUpperCase();
+  if (ty === 'OWN_GOAL') return `${name} ${min} (OG)`;
+  if (ty === 'PENALTY') return `${name} ${min} (P)`;
+  return `${name} ${min}`;
+}
+
+function buildFootballSummaryGroups(events, localId, visitorId) {
+  const sorted = [...(events || [])].sort(
+    (a, b) => parseFootballMinuteSort(a.event_time) - parseFootballMinuteSort(b.event_time)
+  );
+
+  const groups = FOOTBALL_SUMMARY_GROUP_DEFS.map((def) => ({
+    key: def.key,
+    icon: def.icon,
+    home: [],
+    away: []
+  }));
+
+  for (const ev of sorted) {
+    const ty = String(ev.event_type || '').trim().toUpperCase();
+    const def = FOOTBALL_SUMMARY_GROUP_DEFS.find((g) => g.types.includes(ty));
+    if (!def) continue;
+    const group = groups.find((g) => g.key === def.key);
+    if (!group) continue;
+    const side = resolveFootballEventSide(ev, ty, localId, visitorId);
+    const entry = {
+      key: `ev-${ev.event_id}`,
+      label: footballSummaryLineLabel(ev, ty)
+    };
+    if (side === 'home') group.home.push(entry);
+    else if (side === 'away') group.away.push(entry);
+  }
+
+  return groups.filter((g) => g.home.length > 0 || g.away.length > 0);
+}
+
+function FootballSummaryIcon({ type }) {
+  if (type === 'yellow') {
+    return <span className="game-football-summary-icon game-football-summary-icon--yellow" aria-hidden />;
+  }
+  if (type === 'red') {
+    return <span className="game-football-summary-icon game-football-summary-icon--red" aria-hidden />;
+  }
+  return <PiSoccerBallFill className="game-football-summary-icon game-football-summary-icon--ball" aria-hidden />;
+}
+
 /**
  * Construye filas de timeline a partir de filas de `game_events` (START + pares GOAL/AST + metadatos).
  */
@@ -626,6 +795,7 @@ function GamePages() {
   const [gameSpiritLoading, setGameSpiritLoading] = useState(false);
   const [gameSpiritError, setGameSpiritError] = useState('');
   const [gameSpiritPayload, setGameSpiritPayload] = useState(null);
+  const [tournamentSportId, setTournamentSportId] = useState(null);
 
   /** Encuesta de espíritu manual (organizador): modal con mismas preguntas que el enlace público. */
   const [spiritManualOpen, setSpiritManualOpen] = useState(false);
@@ -640,6 +810,14 @@ function GamePages() {
   const gameFinished = useMemo(() => isGameFinishedState(gameEstado), [gameEstado]);
   const gameOngoing = useMemo(() => isGameOngoingState(gameEstado), [gameEstado]);
   const gameUpcoming = useMemo(() => isGameUpcomingState(gameEstado), [gameEstado]);
+  const spiritSurveyEnabled = useMemo(
+    () => Number(tournamentSportId) !== FOOTBALL_SPORT_ID,
+    [tournamentSportId]
+  );
+  const isFootballTournament = useMemo(
+    () => Number(tournamentSportId) === FOOTBALL_SPORT_ID,
+    [tournamentSportId]
+  );
   const rosterLoadKeyRef = useRef('');
 
   const { tiempo } = useGamePhaseClock({
@@ -776,11 +954,23 @@ function GamePages() {
   }, [tournamentIdParam, gameIdParam]);
 
   useEffect(() => {
-    if (gameSectionTab !== 'espiritu') return undefined;
+    if (!spiritSurveyEnabled && gameSectionTab === 'espiritu') {
+      setGameSectionTab('resumen');
+    }
+  }, [spiritSurveyEnabled, gameSectionTab]);
+
+  useEffect(() => {
+    if (isFootballTournament && gameSectionTab !== 'resumen') {
+      setGameSectionTab('resumen');
+    }
+  }, [isFootballTournament, gameSectionTab]);
+
+  useEffect(() => {
+    if (!spiritSurveyEnabled || gameSectionTab !== 'espiritu') return undefined;
     loadGameSpiritScores({ silent: false });
     const id = setInterval(() => loadGameSpiritScores({ silent: true }), 8000);
     return () => clearInterval(id);
-  }, [gameSectionTab, loadGameSpiritScores]);
+  }, [spiritSurveyEnabled, gameSectionTab, loadGameSpiritScores]);
 
   useEffect(() => {
     loadGameEvents();
@@ -866,6 +1056,7 @@ function GamePages() {
       setGameRow(null);
       setTorneoTeamsRows([]);
       setTorneoGamesNormalized([]);
+      setTournamentSportId(null);
       if (!gameIdParam || !tournamentIdParam) {
         setGameLoading(false);
         setGameLoadError('Faltan parámetros del partido (gameId o tournamentId).');
@@ -899,6 +1090,16 @@ function GamePages() {
         });
         setTorneoGamesNormalized(tournamentGamesNormalized);
         let teamRows = [];
+        try {
+          const tRes = await configService.getTournamentById(tournamentIdParam);
+          if (tRes?.success && tRes.data?.tournament) {
+            setTournamentSportId(tRes.data.tournament.sport_id ?? null);
+          } else {
+            setTournamentSportId(null);
+          }
+        } catch {
+          setTournamentSportId(null);
+        }
         try {
           const tr = await configService.getTeams(tournamentIdParam);
           if (tr?.success) teamRows = tr.data?.teams || [];
@@ -1331,11 +1532,36 @@ function GamePages() {
         : gameRow.visitor_name != null && String(gameRow.visitor_name).trim() !== ''
           ? String(gameRow.visitor_name).trim()
           : 'Visitante';
-    return buildGameTimelineItems(gameEvents, localId, visitorId, homeNm, awayNm);
-  }, [gameEvents, gameRow, gamePageSlotResolution]);
+    return Number(tournamentSportId) === FOOTBALL_SPORT_ID
+      ? buildFootballTimelineItems(gameEvents, localId, visitorId, homeNm, awayNm)
+      : buildGameTimelineItems(gameEvents, localId, visitorId, homeNm, awayNm);
+  }, [gameEvents, gameRow, gamePageSlotResolution, tournamentSportId]);
 
   /** Orden por defecto: más recientes arriba (último event_id primero). */
   const displayedTimeline = useMemo(() => [...timelineItems].reverse(), [timelineItems]);
+
+  const footballSummaryGroups = useMemo(() => {
+    if (!isFootballTournament || !gameRow) return [];
+    const fkLoc = gameRow.local != null ? Number(gameRow.local) : null;
+    const fkVis = gameRow.visitor != null ? Number(gameRow.visitor) : null;
+    const localId =
+      gamePageSlotResolution?.localRosterId != null &&
+      Number.isFinite(Number(gamePageSlotResolution.localRosterId)) &&
+      Number(gamePageSlotResolution.localRosterId) > 0
+        ? Number(gamePageSlotResolution.localRosterId)
+        : fkLoc != null && Number.isFinite(fkLoc)
+          ? fkLoc
+          : null;
+    const visitorId =
+      gamePageSlotResolution?.visitorRosterId != null &&
+      Number.isFinite(Number(gamePageSlotResolution.visitorRosterId)) &&
+      Number(gamePageSlotResolution.visitorRosterId) > 0
+        ? Number(gamePageSlotResolution.visitorRosterId)
+        : fkVis != null && Number.isFinite(fkVis)
+          ? fkVis
+          : null;
+    return buildFootballSummaryGroups(gameEvents, localId, visitorId);
+  }, [gameEvents, gameRow, gamePageSlotResolution, isFootballTournament]);
 
   const gameRankMap = useMemo(() => buildPlayerRankMap(gameRankRows), [gameRankRows]);
 
@@ -1350,10 +1576,37 @@ function GamePages() {
     return suffix ? `/calendar?${suffix}` : '/calendar';
   }, [tournamentIdParam]);
 
+  const gameSeo = useMemo(() => {
+    const home = gamePageSlotResolution?.homeName || 'Local';
+    const away = gamePageSlotResolution?.awayName || 'Visitante';
+    const gameSearch = new URLSearchParams();
+    if (tournamentIdParam) gameSearch.set('tournamentId', String(tournamentIdParam));
+    if (gameIdParam) gameSearch.set('gameId', String(gameIdParam));
+    const dateRaw = gameRow?.game_date || gameRow?.date;
+    return {
+      title: `${home} vs ${away} | ${DEFAULT_SITE_TITLE}`,
+      description: `Resultados, estadísticas y línea de tiempo del partido ${home} vs ${away}.`,
+      search: gameSearch.toString(),
+      jsonLd: buildSportsEventJsonLd({
+        homeTeam: home,
+        awayTeam: away,
+        gameDate: dateRaw || undefined,
+        location: gameRow?.place || gameRow?.location || undefined
+      })
+    };
+  }, [gamePageSlotResolution, tournamentIdParam, gameIdParam, gameRow]);
+
   return (
     <div className="game_container">
+      <SeoHead
+        title={gameSeo.title}
+        description={gameSeo.description}
+        pathname="/game"
+        search={gameSeo.search}
+        jsonLd={gameSeo.jsonLd}
+      />
       <div className="topbar">
-        {isUserAuthenticated ? <Navbar /> : <Noauth_Navbar />}
+        {isUserAuthenticated ? <Navbar tournamentId={tournamentIdParam} /> : <Noauth_Navbar />}
       </div>
       <div className="body_container">
         {!gameLoading ? (
@@ -1470,43 +1723,47 @@ function GamePages() {
           {!gameLoading && !gameLoadError && matchup ? (
             <div className="game-stats-section">
               <div className="game-detail-card">
-                <nav className="game-detail-card-nav" aria-label="Secciones del partido">
-                  <button
-                    type="button"
-                    className={
-                      gameSectionTab === 'resumen'
-                        ? 'game-detail-tab game-detail-tab--active'
-                        : 'game-detail-tab'
-                    }
-                    onClick={() => setGameSectionTab('resumen')}
-                  >
-                    Resumen
-                  </button>
-                  <button
-                    type="button"
-                    className={
-                      gameSectionTab === 'playerStats'
-                        ? 'game-detail-tab game-detail-tab--active'
-                        : 'game-detail-tab'
-                    }
-                    onClick={() => setGameSectionTab('playerStats')}
-                  >
-                    Player Stats
-                  </button>
-                  <button
-                    type="button"
-                    className={
-                      gameSectionTab === 'espiritu'
-                        ? 'game-detail-tab game-detail-tab--active'
-                        : 'game-detail-tab'
-                    }
-                    onClick={() => setGameSectionTab('espiritu')}
-                  >
-                    Espíritu
-                  </button>
-                </nav>
+                {!isFootballTournament ? (
+                  <nav className="game-detail-card-nav" aria-label="Secciones del partido">
+                    <button
+                      type="button"
+                      className={
+                        gameSectionTab === 'resumen'
+                          ? 'game-detail-tab game-detail-tab--active'
+                          : 'game-detail-tab'
+                      }
+                      onClick={() => setGameSectionTab('resumen')}
+                    >
+                      Resumen
+                    </button>
+                    <button
+                      type="button"
+                      className={
+                        gameSectionTab === 'playerStats'
+                          ? 'game-detail-tab game-detail-tab--active'
+                          : 'game-detail-tab'
+                      }
+                      onClick={() => setGameSectionTab('playerStats')}
+                    >
+                      Player Stats
+                    </button>
+                    {spiritSurveyEnabled ? (
+                      <button
+                        type="button"
+                        className={
+                          gameSectionTab === 'espiritu'
+                            ? 'game-detail-tab game-detail-tab--active'
+                            : 'game-detail-tab'
+                        }
+                        onClick={() => setGameSectionTab('espiritu')}
+                      >
+                        Espíritu
+                      </button>
+                    ) : null}
+                  </nav>
+                ) : null}
                 <div className="game-detail-card-body">
-                  {gameSectionTab === 'playerStats' ? (
+                  {!isFootballTournament && gameSectionTab === 'playerStats' ? (
                     <>
                       {playersLoading ? <div className="game-stats-state">Cargando jugadores…</div> : null}
                       {!playersLoading && playersError ? (
@@ -1549,48 +1806,86 @@ function GamePages() {
                       ) : null}
                     </>
                   ) : null}
-                  {gameSectionTab === 'resumen' ? (
+                  {(isFootballTournament || gameSectionTab === 'resumen') ? (
                     <div className="game-timeline-wrap">
-                      <div className="game-timeline-header">
-                        <h3 className="game-timeline-title">Resumen del partido</h3>
-                      </div>
                       {gameEventsError ? (
                         <p className="game-timeline-error" role="alert">
                           {gameEventsError}
                         </p>
                       ) : null}
-                      {displayedTimeline.length === 0 && !gameEventsError ? (
-                        <p className="game-timeline-empty">Aún no hay eventos registrados para este partido.</p>
-                      ) : null}
-                      <ul className="game-timeline-list" aria-label="Línea de tiempo del partido">
-                        {displayedTimeline.map((item) => (
-                          <li
-                            key={item.key}
-                            className={`game-timeline-card game-timeline-card--${item.side}`}
-                          >
-                            <div className="game-timeline-card-inner">
-                              <span className="game-timeline-time">{item.timeLabel}</span>
-                              <div className="game-timeline-body">
-                                <p className="game-timeline-main">{item.lineMain}</p>
-                                {item.lineSub ? <p className="game-timeline-sub">{item.lineSub}</p> : null}
-                              </div>
-                              <div className="game-timeline-scores" aria-label="Marcador tras el evento">
-                                <div className="game-timeline-score-line">
-                                  <span className="game-timeline-score-num">{item.homeScore}</span>
-                                  <span className="game-timeline-score-name">{matchup.homeName}</span>
+                      {isFootballTournament && matchup ? (
+                        <div className="game-football-summary" aria-label="Resumen del partido de fútbol">
+                          {footballSummaryGroups.length === 0 && !gameEventsError ? (
+                            <p className="game-football-summary-empty">
+                              Aún no hay goles ni tarjetas registrados para este partido.
+                            </p>
+                          ) : null}
+
+                          {footballSummaryGroups.length > 0 ? (
+                            <div className="game-football-summary-events">
+                              {footballSummaryGroups.map((row) => (
+                                <div key={row.key} className="game-football-event-row">
+                                  <div className="game-football-event-col game-football-event-col--home">
+                                    {row.home.map((entry) => (
+                                      <p key={entry.key} className="game-football-event-line">
+                                        {entry.label}
+                                      </p>
+                                    ))}
+                                  </div>
+                                  <div className="game-football-event-col game-football-event-col--icon">
+                                    <FootballSummaryIcon type={row.icon} />
+                                  </div>
+                                  <div className="game-football-event-col game-football-event-col--away">
+                                    {row.away.map((entry) => (
+                                      <p key={entry.key} className="game-football-event-line">
+                                        {entry.label}
+                                      </p>
+                                    ))}
+                                  </div>
                                 </div>
-                                <div className="game-timeline-score-line">
-                                  <span className="game-timeline-score-num">{item.awayScore}</span>
-                                  <span className="game-timeline-score-name">{matchup.awayName}</span>
-                                </div>
-                              </div>
+                              ))}
                             </div>
-                          </li>
-                        ))}
-                      </ul>
+                          ) : null}
+                        </div>
+                      ) : (
+                        <>
+                          <div className="game-timeline-header">
+                            <h3 className="game-timeline-title">Resumen del partido</h3>
+                          </div>
+                          {displayedTimeline.length === 0 && !gameEventsError ? (
+                            <p className="game-timeline-empty">Aún no hay eventos registrados para este partido.</p>
+                          ) : null}
+                          <ul className="game-timeline-list" aria-label="Línea de tiempo del partido">
+                            {displayedTimeline.map((item) => (
+                              <li
+                                key={item.key}
+                                className={`game-timeline-card game-timeline-card--${item.side}`}
+                              >
+                                <div className="game-timeline-card-inner">
+                                  <span className="game-timeline-time">{item.timeLabel}</span>
+                                  <div className="game-timeline-body">
+                                    <p className="game-timeline-main">{item.lineMain}</p>
+                                    {item.lineSub ? <p className="game-timeline-sub">{item.lineSub}</p> : null}
+                                  </div>
+                                  <div className="game-timeline-scores" aria-label="Marcador tras el evento">
+                                    <div className="game-timeline-score-line">
+                                      <span className="game-timeline-score-num">{item.homeScore}</span>
+                                      <span className="game-timeline-score-name">{matchup.homeName}</span>
+                                    </div>
+                                    <div className="game-timeline-score-line">
+                                      <span className="game-timeline-score-num">{item.awayScore}</span>
+                                      <span className="game-timeline-score-name">{matchup.awayName}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        </>
+                      )}
                     </div>
                   ) : null}
-                  {gameSectionTab === 'espiritu' ? (
+                  {spiritSurveyEnabled && gameSectionTab === 'espiritu' ? (
                     <div className="game-spirit-panel">
                       <h3 className="game-spirit-title">Spirit Scores</h3>
                       {gameAllowsSpiritSurveyManualEntry &&

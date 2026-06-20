@@ -22,10 +22,17 @@ const authRoutes = require('./routes/auth');
 const configRoutes = require('./routes/config');
 const spiritSurveyRoutes = require('./routes/spiritSurvey');
 const userRoutes = require('./routes/users');
+const sportsRoutes = require('./routes/sports');
+const analyticsRoutes = require('./routes/analytics');
+const { getSitemap } = require('./controllers/sitemapController');
 const { apiRateLimiter } = require('./middleware/security');
 
 const app = express();
 const isProd = process.env.NODE_ENV === 'production';
+
+if (isProd) {
+  app.set('trust proxy', 1);
+}
 
 const parseCorsOrigins = () => {
   const raw = process.env.CORS_ORIGIN || 'http://localhost:3000';
@@ -86,6 +93,10 @@ app.use('/api/auth', authRoutes);
 app.use('/api/config', configRoutes);
 app.use('/api/spirit-survey', spiritSurveyRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/sports', sportsRoutes);
+app.use('/api/analytics', analyticsRoutes);
+
+app.get('/sitemap.xml', getSitemap);
 
 app.use((req, res) => {
   res.status(404).json({ success: false, message: 'Ruta no encontrada' });

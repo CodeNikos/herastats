@@ -273,7 +273,7 @@ function GameEventsPage() {
 
   return (
     <div className="game-events-page">
-      <div className="game-events-topbar">{isUserAuthenticated ? <Navbar /> : <Noauth_Navbar />}</div>
+      <div className="game-events-topbar">{isUserAuthenticated ? <Navbar tournamentId={tournamentId} /> : <Noauth_Navbar />}</div>
 
       <main className="game-events-main">
         <header className="game-events-header">

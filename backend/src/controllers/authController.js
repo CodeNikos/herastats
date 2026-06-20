@@ -1,11 +1,11 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const { normalizeRole } = require('../utils/userRoles');
+const TournamentCreationToken = require('../models/TournamentCreationToken');
 const bcrypt = require('bcryptjs');
 const { verifyPasswordSetupToken } = require('../services/passwordSetupService');
 const { JWT_SECRET, getJwtExpiresIn } = require('../config/jwt');
 const { validatePassword } = require('../utils/passwordPolicy');
-
-const { normalizeRole } = require('../utils/userRoles');
 
 const userToJSON = (user) => {
   if (!user) return null;
@@ -278,10 +278,57 @@ const updateProfile = async (req, res) => {
   }
 };
 
+const getTournamentCreationEligibility = async (req, res) => {
+  try {
+    const role = normalizeRole(req.user?.role);
+    if (role === 'superuser') {
+      return res.json({
+        success: true,
+        data: {
+          can_create: true,
+          tokens_available: null,
+          role
+        }
+      });
+    }
+
+    if (role !== 'admin') {
+      return res.json({
+        success: true,
+        data: {
+          can_create: false,
+          tokens_available: 0,
+          role
+        }
+      });
+    }
+
+    const tokensAvailable = (
+      await TournamentCreationToken.countAvailableByUserIds([req.user.id])
+    ).get(req.user.id) || 0;
+
+    return res.json({
+      success: true,
+      data: {
+        can_create: tokensAvailable > 0,
+        tokens_available: tokensAvailable,
+        role
+      }
+    });
+  } catch (error) {
+    console.error('Error en getTournamentCreationEligibility:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error al verificar elegibilidad de creación'
+    });
+  }
+};
+
 module.exports = {
   register,
   login,
   verifyToken,
   setPassword,
-  updateProfile
+  updateProfile,
+  getTournamentCreationEligibility
 };

@@ -1,0 +1,63 @@
+.analytics-consent-banner {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 9999;
+  padding: 1rem;
+  background: rgba(31, 42, 68, 0.96);
+  color: #f5f7fb;
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.15);
+}
+
+.analytics-consent-banner__inner {
+  max-width: 960px;
+  margin: 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.analytics-consent-banner__inner p {
+  margin: 0;
+  flex: 1 1 280px;
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.analytics-consent-banner__actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.analytics-consent-banner__btn {
+  border: none;
+  border-radius: 8px;
+  padding: 0.55rem 1rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.analytics-consent-banner__btn--primary {
+  background: #3d7a5f;
+  color: #fff;
+}
+
+.analytics-consent-banner__btn--secondary {
+  background: transparent;
+  color: #f5f7fb;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+}
+
+@media (max-width: 600px) {
+  .analytics-consent-banner__actions {
+    width: 100%;
+  }
+
+  .analytics-consent-banner__btn {
+    flex: 1;
+  }
+}

@@ -99,6 +99,22 @@ class GameEvent {
     }
     await pool.query('ALTER TABLE game_events ALTER COLUMN player_id DROP NOT NULL').catch(() => {});
 
+    const colYellow = await pool.query(`
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'game_events' AND column_name = 'yellowcard'
+    `);
+    if (colYellow.rows.length === 0) {
+      await pool.query(`ALTER TABLE game_events ADD COLUMN yellowcard INTEGER NOT NULL DEFAULT 0`);
+    }
+
+    const colRed = await pool.query(`
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'game_events' AND column_name = 'redcard'
+    `);
+    if (colRed.rows.length === 0) {
+      await pool.query(`ALTER TABLE game_events ADD COLUMN redcard INTEGER NOT NULL DEFAULT 0`);
+    }
+
     const colEvTypeLen = await pool.query(`
       SELECT character_maximum_length AS maxlen
       FROM information_schema.columns
@@ -155,11 +171,13 @@ class GameEvent {
    * @param {string} row.event_type
    * @param {number} row.user_id
    * @param {number|null} [row.team_id]
+   * @param {number} [row.yellowcard]
+   * @param {number} [row.redcard]
    */
   static async create(row) {
     const q = `
-      INSERT INTO game_events (game_id, tourn_id, event_time, player_id, goals, assists, event_type, user_id, team_id)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      INSERT INTO game_events (game_id, tourn_id, event_time, player_id, goals, assists, event_type, user_id, team_id, yellowcard, redcard)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
       RETURNING *
     `;
     const values = [
@@ -171,10 +189,72 @@ class GameEvent {
       row.assists,
       row.event_type,
       row.user_id,
-      row.team_id ?? null
+      row.team_id ?? null,
+      row.yellowcard != null ? Number(row.yellowcard) : 0,
+      row.redcard != null ? Number(row.redcard) : 0
     ];
     const result = await pool.query(q, values);
     return result.rows[0];
+  }
+
+  static async findByIdForGame(eventId, gameId, tournamentId) {
+    const r = await pool.query(
+      `SELECT
+         e.event_id,
+         e.game_id,
+         e.tourn_id,
+         e.event_time,
+         e.event_type,
+         e.player_id,
+         e.goals,
+         e.assists,
+         e.team_id,
+         e.yellowcard,
+         e.redcard,
+         p.player_name,
+         p.team_id AS player_team_id
+       FROM game_events e
+       LEFT JOIN player p ON p.player_id = e.player_id
+       WHERE e.event_id = $1 AND e.game_id = $2 AND e.tourn_id = $3`,
+      [Number(eventId), Number(gameId), Number(tournamentId)]
+    );
+    return r.rows[0] || null;
+  }
+
+  static async updateById(eventId, row) {
+    const q = `
+      UPDATE game_events
+      SET
+        event_time = $2,
+        player_id = $3,
+        goals = $4,
+        assists = $5,
+        event_type = $6,
+        team_id = $7,
+        yellowcard = $8,
+        redcard = $9
+      WHERE event_id = $1
+      RETURNING *
+    `;
+    const result = await pool.query(q, [
+      Number(eventId),
+      row.event_time,
+      row.player_id ?? null,
+      row.goals,
+      row.assists,
+      row.event_type,
+      row.team_id ?? null,
+      row.yellowcard != null ? Number(row.yellowcard) : 0,
+      row.redcard != null ? Number(row.redcard) : 0
+    ]);
+    return result.rows[0] || null;
+  }
+
+  static async deleteById(eventId) {
+    const result = await pool.query('DELETE FROM game_events WHERE event_id = $1 RETURNING event_id', [
+      Number(eventId)
+    ]);
+    return result.rowCount > 0;
   }
 
   static async findByGameId(gameId) {
@@ -189,6 +269,8 @@ class GameEvent {
         e.goals,
         e.assists,
         e.team_id,
+        e.yellowcard,
+        e.redcard,
         e.created_at,
         p.player_name,
         p.team_id AS player_team_id,
@@ -408,6 +490,85 @@ class GameEvent {
       INNER JOIN player p ON p.player_id = b.player_id
       INNER JOIN team t ON t.team_id = p.team_id
       LEFT JOIN callahan ch ON ch.player_id = b.player_id
+      WHERE t.torneo_id = $1
+      ${orderLimit}
+    `;
+
+    const result = await pool.query(sql, paramsBase);
+    return result.rows;
+  }
+
+  /**
+   * Estadísticas de fútbol por jugador desde game_events (goles, tarjetas, partidos).
+   */
+  static async aggregateFootballPlayerStatsByTournament(torneoId, options = {}) {
+    const tid = Number(torneoId);
+    if (!Number.isFinite(tid) || tid <= 0) return [];
+
+    const topOnly = options.topOnly === true;
+    const division =
+      options.division != null && String(options.division).trim() !== ''
+        ? String(options.division).trim()
+        : null;
+    const groupPhaseOnly = options.groupPhaseOnly === true;
+
+    const groupPhaseClauseG =
+      groupPhaseOnly
+        ? ` AND EXISTS (
+            SELECT 1 FROM phases ph
+            WHERE ph.phas_id = g.phas_id
+              AND ph.torneo_id = g.torneo_id
+              AND (
+                LOWER(TRIM(COALESCE(ph.stage, ''))) LIKE '%grupo%'
+                OR LOWER(TRIM(COALESCE(ph.stage, ''))) LIKE '%group%'
+              )
+          )`
+        : '';
+
+    const divFilterBase =
+      topOnly || !division ? '' : ' AND TRIM(COALESCE(g.division, \'\')) = $2';
+    const paramsBase = topOnly || !division ? [tid] : [tid, division];
+    const orderLimit = topOnly
+      ? ' ORDER BY b.goals DESC, b.yellowcards DESC, p.player_name ASC NULLS LAST LIMIT 100'
+      : ' ORDER BY b.goals DESC, b.yellowcards DESC, p.player_name ASC NULLS LAST';
+
+    const sql = `
+      WITH base AS (
+        SELECT
+          e.player_id,
+          SUM(
+            CASE
+              WHEN UPPER(TRIM(e.event_type)) IN ('GOAL', 'PENALTY') THEN COALESCE(e.goals, 1)
+              ELSE 0
+            END
+          )::int AS goals,
+          SUM(COALESCE(e.yellowcard, 0))::int AS yellowcards,
+          SUM(COALESCE(e.redcard, 0))::int AS redcards,
+          COUNT(DISTINCT e.game_id)::int AS games_played
+        FROM game_events e
+        INNER JOIN game g ON g.game_id = e.game_id AND g.torneo_id = e.tourn_id
+        WHERE e.tourn_id = $1
+          AND e.player_id IS NOT NULL
+          AND UPPER(TRIM(e.event_type)) IN ('GOAL', 'PENALTY', 'OWN_GOAL', 'YELLOW_CARD', 'RED_CARD')
+          ${divFilterBase}
+          ${groupPhaseClauseG}
+        GROUP BY e.player_id
+      )
+      SELECT
+        b.player_id,
+        p.player_name,
+        t.team_id,
+        t.name AS team_name,
+        t.url_imagen AS team_image,
+        b.goals,
+        0::int AS assists,
+        b.games_played AS games,
+        0::int AS callahans,
+        b.yellowcards,
+        b.redcards
+      FROM base b
+      INNER JOIN player p ON p.player_id = b.player_id
+      INNER JOIN team t ON t.team_id = p.team_id
       WHERE t.torneo_id = $1
       ${orderLimit}
     `;

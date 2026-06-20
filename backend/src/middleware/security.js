@@ -28,7 +28,21 @@ const apiRateLimiter = rateLimit({
   skip: () => process.env.NODE_ENV === 'test'
 });
 
+/** Límite en recolección de analytics (beacon público). */
+const analyticsCollectRateLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000,
+  max: isProd ? 60 : 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'Demasiadas peticiones de analytics.'
+  },
+  skip: () => process.env.NODE_ENV === 'test'
+});
+
 module.exports = {
   authRateLimiter,
-  apiRateLimiter
+  apiRateLimiter,
+  analyticsCollectRateLimiter
 };

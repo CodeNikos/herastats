@@ -7,7 +7,7 @@ import {
   HERASTATS_GAMES_CHANGED_STORAGE,
   HERASTATS_TOURNAMENT_COHERENCE,
   normalizeTournamentIdForCoherence
-} from '../utils/tournamentSync';
+} from '../utils/tournamentSync'; 
 import {
   buildGroupStandingsRows,
   isFinishedGameEstado,
@@ -18,6 +18,7 @@ import {
   parseStatsSlotDescriptor,
   resolveStatsSlotToTeam
 } from '../utils/schedulePlayoffSlotResolution';
+import { aggregateTeamCardStatsFromPlayerRows } from '../utils/bestThirdPlace';
 import { fetchTournamentStandingsInventory } from '../utils/tournamentStandingsRefresh';
 import {
   BRACKET_PLACEMENT_OPTIONS,
@@ -33,6 +34,248 @@ const TEAM_FALLBACK_IMAGE = '/Hera_logo.png';
 /** Columnas de referencia del grid: evita que los cards crezcan cuando hay menos fases. */
 const BRACKET_REFERENCE_PHASE_COUNT = 3;
 
+/**
+ * Regla base homogénea para layout de fútbol (torneo_id / sport_id = 2).
+ */
+const FOOTBALL_FIXED_LAYOUT_BLANK = Object.freeze({
+  gap: '12px',
+  offset: '0px',
+  alignTopOffset: '0px',
+  marginTop: '0px'
+});
+
+/**
+ * `fixedLayouts` para el resto de deportes (lógica histórica del bracket).
+ */
+function buildDefaultFixedLayouts({ c, layoutUsesRankedRules, prevPhaseMatches }) {
+  return {
+    0: undefined,
+    1:
+      !layoutUsesRankedRules && prevPhaseMatches === 2
+        ? c.secondPhaseTwoGames
+        : layoutUsesRankedRules && prevPhaseMatches === 0
+          ? c.laterPhaseFewGames
+          : !layoutUsesRankedRules && prevPhaseMatches === 0
+            ? c.twoPhasesmany
+            : c.phase1,
+    2:
+      !layoutUsesRankedRules && prevPhaseMatches <= 2
+        ? c.laterPhaseFewGames
+        : layoutUsesRankedRules && prevPhaseMatches === 0
+          ? c.laterPhaseFewGames
+          : c.phase2Many
+  };
+}
+
+/** Plantilla de reglas por patrón de conectores dentro de una fase. */
+const footballConnectorRules = (overrides = {}) => {
+  const { default: sharedRule, ...rest } = overrides;
+  const fallback = () => {
+    if (sharedRule == null) return { ...FOOTBALL_FIXED_LAYOUT_BLANK };
+    if (typeof sharedRule === 'object') return { ...sharedRule };
+    return sharedRule;
+  };
+
+  return {
+    /** Salida a siguiente fase, sin entrada desde la anterior */
+    toNextOnly: rest.toNextOnly ?? fallback(),
+    /** Sin conectores */
+    isolated: rest.isolated ?? fallback(),
+    /** Entrada y salida (típico penúltima columna) */
+    both: rest.both ?? fallback(),
+    /** Solo entrada desde fase anterior */
+    fromPrevOnly: rest.fromPrevOnly ?? fallback()
+  };
+};
+
+/**
+ * Paso vertical de referencia para offsets incrementales por partido en la misma fase.
+ */
+const FOOTBALL_LAYOUT_ROW_STEP_PX = 52;
+
+/**
+ * Reglas de layout por fase — lienzo de CONFIGURACIÓN (/brackets, edición).
+ * Edita solo esta función para el bracket de configuración.
+ *
+ * @param {number} matchesBeforeForThisMatch — índice del partido en la columna (0 = primero, 1 = segundo, …).
+ */
+function FOOTBALL_CONNECTOR_LAYOUT_BY_PHASE_CONFIG(matchesBeforeForThisMatch) {
+  const n = Math.max(0, Number(matchesBeforeForThisMatch) || 0);
+  const step = FOOTBALL_LAYOUT_ROW_STEP_PX;
+
+  return {
+    0: footballConnectorRules({
+      default: { gap: '12px', offset: '12px', alignTopOffset: '0px' }
+    }),
+    1: footballConnectorRules({
+      default: { gap: '113.706px', offset: '52px', alignTopOffset: '0px' },
+      fromPrevOnly: { gap: '113.706px', offset: '52px', alignTopOffset: '0px' },
+      toNextOnly: { gap: '113.706px', offset: '52px', alignTopOffset: '0px' },
+      both: { gap: '113.706px', offset: '103.706px', alignTopOffset: '0px' }
+    }),
+    2: footballConnectorRules({
+      default: { gap: '12px', offset: '152.556px', alignTopOffset: '0px' },
+      fromPrevOnly: { gap: '305.112px', offset: '0px', alignTopOffset: '12px' },
+      toNextOnly: { gap: '305.112px', offset: '0px', alignTopOffset: '12px' },
+      both: { gap: '305.112px', offset: '0px', alignTopOffset: '12px' }
+    }),
+    penultimate: footballConnectorRules({
+      default: { gap: '12px', offset: '357.112px', alignTopOffset: '0px' },
+      fromPrevOnly: { gap: '649.074px', offset: '357.112px', alignTopOffset: '12px' },
+      toNextOnly: { gap: '710.78px', offset: '357.112px', alignTopOffset: '12px' },
+      both: { gap: '710.78px', offset: '357.112px', alignTopOffset: '12px' }
+    }),
+    last: footballConnectorRules({
+      default: { gap: '12px', offset: '751.706px', alignTopOffset: '150px' },
+      fromPrevOnly: { gap: '150px', offset: '751.706px', alignTopOffset: '0px' },
+      isolated: { gap: '450px', offset: '751.706px', alignTopOffset: '0px' }
+    }),
+    default: footballConnectorRules()
+  };
+}
+
+/**
+ * Reglas de layout por fase — lienzo POOL & BRACKETS (/poolbrackets, solo lectura).
+ * Edita solo esta función para la vista pública; no afecta configuración.
+ *
+ * @param {number} matchesBeforeForThisMatch — índice del partido en la columna (0 = primero, 1 = segundo, …).
+ */
+function FOOTBALL_CONNECTOR_LAYOUT_BY_PHASE_POOL(matchesBeforeForThisMatch) {
+  const n = Math.max(0, Number(matchesBeforeForThisMatch) || 0);
+  const step = FOOTBALL_LAYOUT_ROW_STEP_PX;
+
+  return {
+    0: footballConnectorRules({
+      default: { gap: '12px', offset: '12px', alignTopOffset: '0px' }
+    }),
+    1: footballConnectorRules({
+      default: { gap: '96px', offset: '52px', alignTopOffset: '0px' },
+      fromPrevOnly: { gap: '96px', offset: '52px', alignTopOffset: '0px' },
+      toNextOnly: { gap: '96px', offset: '52px', alignTopOffset: '0px' },
+      both: { gap: '96px', offset: '52px', alignTopOffset: '0px' }
+    }),
+    2: footballConnectorRules({
+      default: { gap: '12px', offset: '132px', alignTopOffset: '0px' },
+      fromPrevOnly: { gap: '252px', offset: '0px', alignTopOffset: '12px' },
+      toNextOnly: { gap: '252px', offset: '0px', alignTopOffset: '12px' },
+      both: { gap: '252px', offset: '0px', alignTopOffset: '12px' }
+    }),
+    penultimate: footballConnectorRules({
+      default: { gap: '12px', offset: '300px', alignTopOffset: '0px' },
+      fromPrevOnly: { gap: '649.074px', offset: '300px', alignTopOffset: '0px' },
+      toNextOnly: { gap: '710.78px', offset: '300px', alignTopOffset: '0px' },
+      both: { gap: '600px', offset: '300px', alignTopOffset: '0px' }
+    }),
+    last: footballConnectorRules({
+      default: { gap: '12px', offset: '636px', alignTopOffset: '0px' },
+      fromPrevOnly: { gap: '150px', offset: '636px', alignTopOffset: '0px' },
+      isolated: { gap: '450px', offset: '636px', alignTopOffset: '0px' }
+    }),
+    default: footballConnectorRules()
+  };
+}
+
+/** Elige la tabla de reglas según la página que renderiza el lienzo. */
+function resolveFootballConnectorLayoutByPhase(isPoolBracketsPage) {
+  return isPoolBracketsPage
+    ? FOOTBALL_CONNECTOR_LAYOUT_BY_PHASE_POOL
+    : FOOTBALL_CONNECTOR_LAYOUT_BY_PHASE_CONFIG;
+}
+
+/** Índice semántico de fase para la tabla anterior. */
+function resolveFootballPhaseKey(roundIndex, totalPhases) {
+  if (roundIndex <= 0) return 'first';
+  if (totalPhases > 0 && roundIndex === totalPhases - 1) return 'last';
+  if (totalPhases > 1 && roundIndex === totalPhases - 2) return 'penultimate';
+  return roundIndex;
+}
+
+function getFootballPhaseConnectorRules(
+  roundIndex,
+  totalPhases,
+  matchesBeforeForThisMatch,
+  isPoolBracketsPage = false
+) {
+  const layoutByPhase = resolveFootballConnectorLayoutByPhase(isPoolBracketsPage);
+  const table = layoutByPhase(matchesBeforeForThisMatch);
+  if (Object.prototype.hasOwnProperty.call(table, roundIndex)) {
+    return table[roundIndex];
+  }
+  const phaseKey = resolveFootballPhaseKey(roundIndex, totalPhases);
+  return table[phaseKey] ?? table.default;
+}
+
+function resolveFootballLayoutRule(rule, layoutCtx) {
+  if (rule == null) return null;
+  if (typeof rule === 'function') return rule(layoutCtx);
+  return { ...rule };
+}
+
+function getFootballRoundFallbackLayout(
+  roundIndex,
+  totalPhases,
+  matchesBeforeForThisMatch = 0,
+  isPoolBracketsPage = false
+) {
+  const layoutCtx = {
+    matchesBeforeForThisMatch,
+    roundIndex,
+    totalPhases
+  };
+  const phaseRules = getFootballPhaseConnectorRules(
+    roundIndex,
+    totalPhases,
+    matchesBeforeForThisMatch,
+    isPoolBracketsPage
+  );
+  return resolveFootballLayoutRule(phaseRules.isolated, layoutCtx) ?? { ...FOOTBALL_FIXED_LAYOUT_BLANK };
+}
+
+/**
+ * Layout según conectores del partido — exclusivo fútbol (torneo_id / sport_id = 2).
+ * Usa `FOOTBALL_CONNECTOR_LAYOUT_BY_PHASE_CONFIG` o `_POOL` según la página.
+ */
+function footballLayoutFromPhaseEvaluation(
+  e,
+  { roundIndex, totalPhases, matchesBeforeForThisMatch = 0, isPoolBracketsPage = false }
+) {
+  const blank = { ...FOOTBALL_FIXED_LAYOUT_BLANK };
+  const layoutCtx = {
+    matchesBeforeForThisMatch,
+    roundIndex,
+    totalPhases
+  };
+  const phaseRules = getFootballPhaseConnectorRules(
+    roundIndex,
+    totalPhases,
+    matchesBeforeForThisMatch,
+    isPoolBracketsPage
+  );
+  const pick = (connectorKey) => resolveFootballLayoutRule(phaseRules[connectorKey], layoutCtx) ?? blank;
+
+  if (e.hasConnectorsToNext && !e.hasConnectorsFromPrev) return pick('toNextOnly');
+  if (!e.hasConnectorsFromPrev && !e.hasConnectorsToNext) return pick('isolated');
+  if (e.hasConnectorsFromPrev && e.hasConnectorsToNext) return pick('both');
+  if (e.hasConnectorsFromPrev && !e.hasConnectorsToNext) return pick('fromPrevOnly');
+
+  return getFootballRoundFallbackLayout(
+    roundIndex,
+    totalPhases,
+    matchesBeforeForThisMatch,
+    isPoolBracketsPage
+  );
+}
+
+/**
+ * Layout según conectores — resto de deportes (lógica histórica).
+ */
+function defaultLayoutFromPhaseEvaluation(e, { layoutUsesRankedRules, c, roundIndex, fixedLayouts }) {
+  if (layoutUsesRankedRules && e.hasConnectorsToNext && !e.hasConnectorsFromPrev) return c.penPhase;
+  if (layoutUsesRankedRules && !e.hasConnectorsFromPrev && !e.hasConnectorsToNext) return c.finalPhase;
+  if (layoutUsesRankedRules && e.hasConnectorsFromPrev && e.hasConnectorsToNext) return c.penPhaseTwoGames;
+  return fixedLayouts[roundIndex];
+}
+
 /** Vacío en UI → valor por compatibilidad con crear/actualizar juego en BD. */
 const normGameLocationPersist = (v) => {
   const t = v != null ? String(v).trim() : '';
@@ -44,6 +287,40 @@ const sanitizeGameLocationForUi = (raw) => {
   if (s === '' || s.toLowerCase() === 'por definir') return '';
   return s.slice(0, 255);
 };
+
+const formatFootballCardDate = (rawDate) => {
+  const value = String(rawDate || '').trim();
+  if (!value) return 'Fecha por definir';
+  const parsed = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'long' }).format(parsed);
+};
+
+function getFootballPrimaryLabel({ displayName, slotTrim, isPoolBracketsPage }) {
+  const normalizedName = String(displayName || '').trim();
+  const isPlaceholder = !normalizedName || /^por definir/i.test(normalizedName);
+  if (!isPlaceholder) return normalizedName;
+  if (slotTrim) {
+    if (isPoolBracketsPage) return formatGroupPoolSeedLabel(slotTrim) || slotTrim;
+    return slotTrim;
+  }
+  return '—';
+}
+
+function FootballCardMeta({ gameDate, gameLocation }) {
+  const location = sanitizeGameLocationForUi(gameLocation);
+  return (
+    <div className="placements-football-card-meta">
+      <span className="placements-football-card-date">{formatFootballCardDate(gameDate)}</span>
+      {location ? (
+        <>
+          <span className="placements-football-card-sep"> – </span>
+          <span className="placements-football-card-city">{location}</span>
+        </>
+      ) : null}
+    </div>
+  );
+}
 
 const toNumber = (value) => {
   const parsed = Number(value);
@@ -66,10 +343,11 @@ const readDivision = (team) => {
   return divisionValue || 'Sin division';
 };
 
-/** Etiqueta canónica de puesto en grupo para Pool & Brackets: 1A, 2B, 3C (sin prefijos ni cruces W#/L#). */
+/** Etiqueta canónica de puesto en grupo para Pool & Brackets: 1A, 2B, 3C o mejor tercero 3ABCDF. */
 const formatGroupPoolSeedLabel = (raw) => {
   const parsed = parseStatsSlotDescriptor(raw);
   if (!parsed) return null;
+  if (parsed.type === 'bestThird') return parsed.slot;
   const rank = Number(parsed.rank);
   const groupToken = String(parsed.groupToken || '')
     .trim()
@@ -135,15 +413,21 @@ const isSemifinalTitle = (title) => {
   const text = String(title || '').toLowerCase();
   return text.includes('semifinal') || text.includes('semi final') || text.includes('semi-final');
 };
+
+/** Cuartos de final — no confundir con tercer puesto ni con el substring "cuarto" en "Cuartos". */
+const isQuarterFinalTitle = (title) => {
+  const text = String(title || '').toLowerCase().trim();
+  return /\bcuartos?\b/.test(text) || text.includes('quarter');
+};
+
 const isThirdPlaceTitle = (title) => {
-  const text = String(title || '').toLowerCase();
+  if (isQuarterFinalTitle(title)) return false;
+  const text = String(title || '').toLowerCase().trim();
   return (
     text.includes('3ro') ||
     text.includes('3er') ||
     text.includes('tercer') ||
     text.includes('tercero') ||
-    text.includes('4to') ||
-    text.includes('cuarto') ||
     text.includes('third')
   );
 };
@@ -331,6 +615,7 @@ function PlacementsMatchTeamRowsWithScores({
   selectedDivision = '',
   standingsTeams = [],
   standingsGames = [],
+  slotResolutionOptions = {},
   onStatsSlotFieldChange = null,
   onStatsSlotFieldBlur = null,
   incomingAdvanceDisplays = null,
@@ -339,7 +624,8 @@ function PlacementsMatchTeamRowsWithScores({
   statsSlotPlaceholder = '1A',
   statsSlotFieldTitle = 'Puesto en el grupo (mismo orden que estadísticas). Ej. 1A = 1.º del A',
   /** Pool & Brackets (solo lectura): sin columna Loc./Vis.; nombres y banderas se resuelven igual que en Principal cuando hay slots 1A, W12… */
-  isPoolBracketsPage = false
+  isPoolBracketsPage = false,
+  useFootballCardStyle = false
 }) {
   const gameId = extractGameIdFromMatch(match);
   const { localGoals, visitorGoals, loading, error, refetch } = useGameMatchScore(tournamentId, gameId, {
@@ -384,7 +670,9 @@ function PlacementsMatchTeamRowsWithScores({
     const gv = Number(visitorGoals) || 0;
     /** Goal-totals / eventos primero; fila fusionada sólo rescata cuando ambos están en cero pero `game` ya tiene marcador */
     const totalsEmpty = gl === 0 && gv === 0;
-    const dbHasScore = dbBothNumeric && (fhNum !== 0 || faNum !== 0);
+    const dbHasScore =
+      dbBothNumeric &&
+      (fhNum !== 0 || faNum !== 0 || isFinishedGameEstado(match.gameEstado));
     if (totalsEmpty && dbHasScore) {
       displayHome = String(fhNum);
       displayAway = String(faNum);
@@ -405,6 +693,133 @@ function PlacementsMatchTeamRowsWithScores({
   const outcomeWinnerIndex =
     Number.isFinite(nh) && Number.isFinite(na) && nh !== na ? (nh > na ? 0 : 1) : null;
   const outcomeLoserIndex = outcomeWinnerIndex != null ? (outcomeWinnerIndex === 0 ? 1 : 0) : null;
+
+  if (useFootballCardStyle) {
+    return (
+      <div className="placements-football-team-list">
+        {(match.teams || []).map((team, index) => {
+          const scoreValue =
+            useGoalTotalsForScores && readOnly
+              ? index === 0
+                ? displayHome
+                : displayAway
+              : getScoreField(match.score, index === 0 ? 'home' : 'away');
+          const useBracketSlots = !isPoolBracketsPage;
+          const slotSide = index === 0 ? 'local' : 'visitor';
+          const slotRaw =
+            slotSide === 'local' ? match.statsSlotLocal || '' : match.statsSlotVisitor || '';
+          const slotTrim = String(slotRaw).trim();
+          const bracketAdvanceDescriptor = slotTrim ? parseBracketAdvanceSlotDescriptor(slotTrim) : null;
+          const bracketAdvanceSource =
+            bracketAdvanceDescriptor &&
+            bracketSlotMatchByGameNum &&
+            typeof bracketSlotMatchByGameNum.get === 'function'
+              ? bracketSlotMatchByGameNum.get(bracketAdvanceDescriptor.gameNum)
+              : null;
+          const resolvedFromBracketAdvance = bracketAdvanceDescriptor
+            ? resolveTeamFromBracketAdvanceInMatch(bracketAdvanceDescriptor, bracketAdvanceSource)
+            : null;
+          const resolvedFromStandings =
+            slotTrim && !bracketAdvanceDescriptor
+              ? resolveStatsSlotToTeam(
+                  slotTrim,
+                  standingsTeams,
+                  selectedDivision,
+                  standingsGames,
+                  slotResolutionOptions
+                )
+              : null;
+          const hasTeamId = team?.teamId != null && String(team.teamId).trim() !== '';
+          const bracketAdvanceHint = bracketAdvanceDescriptor
+            ? `${bracketAdvanceDescriptor.outcome === 'loser' ? 'L' : 'W'}${bracketAdvanceDescriptor.gameNum}`
+            : null;
+          const displayFlag = slotTrim
+            ? resolvedFromBracketAdvance?.flag ||
+              resolvedFromStandings?.flag ||
+              team?.flag ||
+              TEAM_FALLBACK_IMAGE
+            : team?.flag || TEAM_FALLBACK_IMAGE;
+          let displayName;
+          if (slotTrim && bracketAdvanceDescriptor) {
+            displayName =
+              resolvedFromBracketAdvance?.name || `Por definir (${bracketAdvanceHint})`;
+          } else if (slotTrim) {
+            displayName = resolvedFromStandings?.name || `Por definir (${slotTrim})`;
+          } else if (hasTeamId) {
+            displayName = team?.name || 'Por Definir';
+          } else {
+            displayName = team?.name || 'Por Definir';
+          }
+          const primaryLabel = getFootballPrimaryLabel({
+            displayName,
+            slotTrim,
+            isPoolBracketsPage
+          });
+          const slotAriaLabel =
+            index === 0
+              ? 'Origen equipo local en slot (grupo tipo 1A o bracket tipo W12/L73)'
+              : 'Origen equipo visitante en slot (grupo tipo 3B o bracket tipo W12/L73)';
+
+          return (
+            <div
+              key={`${match.id}-${index}-football`}
+              className={`placements-football-team-row ${
+                outcomeWinnerIndex === index ? 'placements-football-team-row--winner' : ''
+              } ${outcomeLoserIndex === index ? 'placements-football-team-row--loser' : ''}`}
+              data-node={`${match.id}-${index}`}
+            >
+              <span className="placements-football-flag-wrap">
+                <img
+                  src={displayFlag}
+                  alt=""
+                  onError={(event) => {
+                    if (!event.currentTarget.src.includes(TEAM_FALLBACK_IMAGE)) {
+                      event.currentTarget.src = TEAM_FALLBACK_IMAGE;
+                    }
+                  }}
+                />
+              </span>
+              {!readOnly && useBracketSlots ? (
+                <input
+                  type="text"
+                  className="placements-football-slot-input"
+                  placeholder={statsSlotPlaceholder}
+                  value={slotRaw}
+                  title={statsSlotFieldTitle}
+                  onChange={(event) =>
+                    onStatsSlotFieldChange?.(round.id, match.id, slotSide, event.target.value)
+                  }
+                  onBlur={(event) => {
+                    event.stopPropagation();
+                    onStatsSlotFieldBlur?.();
+                  }}
+                  onClick={(event) => event.stopPropagation()}
+                  aria-label={slotAriaLabel}
+                />
+              ) : (
+                <span className="placements-football-team-label" title={displayName}>
+                  {primaryLabel}
+                </span>
+              )}
+              <input
+                type="text"
+                inputMode="numeric"
+                className="placements-football-score-box"
+                value={scoreValue}
+                readOnly={readOnly}
+                disabled={readOnly}
+                onChange={(event) =>
+                  handleScoreChange(round.id, match.id, index === 0 ? 'home' : 'away', event.target.value)
+                }
+                onClick={(event) => event.stopPropagation()}
+                aria-label={index === 0 ? 'Marcador local' : 'Marcador visitante'}
+              />
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
 
   return (
     <div className="placements-team-list">
@@ -435,7 +850,13 @@ function PlacementsMatchTeamRowsWithScores({
 
         const resolvedFromStandings =
           slotTrim && !bracketAdvanceDescriptor
-            ? resolveStatsSlotToTeam(slotTrim, standingsTeams, selectedDivision, standingsGames)
+            ? resolveStatsSlotToTeam(
+                slotTrim,
+                standingsTeams,
+                selectedDivision,
+                standingsGames,
+                slotResolutionOptions
+              )
             : null;
 
         const adv = incomingAdvanceDisplays?.[index];
@@ -849,18 +1270,38 @@ const pickInventoryRowScoreStrings = (gameRow) => {
  * Alineación de tarjeta con fila BD (GET /games): equipos por ID/slot, texto de marcador en lienzo,
  * fecha/hora/ubicación. Misma geometría que mapRoundsFromPhases en loadBracket.
  */
-function hydrateBracketMatchFromInventory(match, game, thinTeamLookup, teamsAllRows, divisionKey, inventoryForSlots) {
+function hydrateBracketMatchFromInventory(
+  match,
+  game,
+  thinTeamLookup,
+  teamsAllRows,
+  divisionKey,
+  inventoryForSlots,
+  slotResolutionOptions = {}
+) {
   const localIdStr = game.local != null ? String(game.local).trim() : '';
   const visitorIdStr = game.visitor != null ? String(game.visitor).trim() : '';
   const localSlotRaw = game.stats_slot_local != null ? String(game.stats_slot_local).trim() : '';
   const visitorSlotRaw = game.stats_slot_visitor != null ? String(game.stats_slot_visitor).trim() : '';
   const resolvedLocal =
     !localIdStr && localSlotRaw
-      ? resolveStatsSlotToTeam(localSlotRaw, teamsAllRows, divisionKey, inventoryForSlots)
+      ? resolveStatsSlotToTeam(
+          localSlotRaw,
+          teamsAllRows,
+          divisionKey,
+          inventoryForSlots,
+          slotResolutionOptions
+        )
       : null;
   const resolvedVisitor =
     !visitorIdStr && visitorSlotRaw
-      ? resolveStatsSlotToTeam(visitorSlotRaw, teamsAllRows, divisionKey, inventoryForSlots)
+      ? resolveStatsSlotToTeam(
+          visitorSlotRaw,
+          teamsAllRows,
+          divisionKey,
+          inventoryForSlots,
+          slotResolutionOptions
+        )
       : null;
   const localTeam = localIdStr ? thinTeamLookup[localIdStr] || {} : {};
   const visitorTeam = visitorIdStr ? thinTeamLookup[visitorIdStr] || {} : {};
@@ -924,7 +1365,15 @@ function hydrateBracketMatchFromInventory(match, game, thinTeamLookup, teamsAllR
   };
 }
 
-function mergeRoundsWithLatestInventory(roundsArr, inventoryByGameId, thinTeams, teamsAllRows, inventoryForSlots, divisionKey) {
+function mergeRoundsWithLatestInventory(
+  roundsArr,
+  inventoryByGameId,
+  thinTeams,
+  teamsAllRows,
+  inventoryForSlots,
+  divisionKey,
+  slotResolutionOptions = {}
+) {
   if (!Array.isArray(roundsArr) || roundsArr.length === 0 || !(inventoryByGameId instanceof Map) || inventoryByGameId.size === 0)
     return roundsArr;
   return roundsArr.map((round) => ({
@@ -939,7 +1388,15 @@ function mergeRoundsWithLatestInventory(roundsArr, inventoryByGameId, thinTeams,
       const wantDiv = normalizeDivisionName(String(divisionKey ?? '')).toLowerCase();
       if (wantDiv !== 'sin division' && rowDiv !== 'sin division' && rowDiv !== wantDiv) return match;
 
-      return hydrateBracketMatchFromInventory(match, dbRow, thinTeams, teamsAllRows, divisionKey, inventoryForSlots);
+      return hydrateBracketMatchFromInventory(
+        match,
+        dbRow,
+        thinTeams,
+        teamsAllRows,
+        divisionKey,
+        inventoryForSlots,
+        slotResolutionOptions
+      );
     })
   }));
 }
@@ -976,7 +1433,9 @@ const injectThirdPlaceLoserLinks = (rounds = [], links = []) => {
   if (!Array.isArray(rounds) || rounds.length === 0) return Array.isArray(links) ? links : [];
   const baseLinks = Array.isArray(links) ? links : [];
   const semifinalRound = rounds.find((round) => isSemifinalTitle(round?.title));
-  const thirdPlaceRound = rounds.find((round) => isThirdPlaceTitle(round?.title));
+  const thirdPlaceRound = rounds.find(
+    (round) => isThirdPlaceTitle(round?.title) && !isQuarterFinalTitle(round?.title)
+  );
   if (!semifinalRound || !thirdPlaceRound) return baseLinks;
 
   const semifinalMatches = [...(semifinalRound.matches || [])]
@@ -1076,7 +1535,8 @@ function PlacementsBracket({
   /** Pool shell: fuerza nueva lectura GET goal-totals cuando el padre reentra / ranked lista llega */
   poolScoresSyncEpoch = 0,
   /** Solo lectura: al hacer clic en la tarjeta navega a `/game` (p. ej. Pool & Brackets). */
-  onGameNavigate
+  onGameNavigate,
+  isFootballTournament = false
 }) {
   const location = useLocation();
   const boardRef = useRef(null);
@@ -1097,6 +1557,10 @@ function PlacementsBracket({
   const [standingsTeamsRaw, setStandingsTeamsRaw] = useState([]);
   /** Partidos del torneo: misma entrada que Stats → Grupos para ordenar slots 1A, 2B… */
   const [standingsGamesRaw, setStandingsGamesRaw] = useState([]);
+  const [cardStatsByTeamId, setCardStatsByTeamId] = useState(() => new Map());
+  const slotResolutionOptions = useMemo(() => ({ cardStatsByTeamId }), [cardStatsByTeamId]);
+  const slotResolutionOptionsRef = useRef(slotResolutionOptions);
+  slotResolutionOptionsRef.current = slotResolutionOptions;
   const [loading, setLoading] = useState(true);
   const [svgSize, setSvgSize] = useState({ width: 1, height: 1 });
   const [connectorPaths, setConnectorPaths] = useState([]);
@@ -1239,6 +1703,34 @@ function PlacementsBracket({
     };
   }, [tournamentId, selectedDivision, silentStandingsNonce]);
 
+  useEffect(() => {
+    if (!isFootballTournament || !tournamentId) {
+      setCardStatsByTeamId(new Map());
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    const loadCardStats = async () => {
+      try {
+        const res = await configService.getTournamentPlayerEventStats(tournamentId, {
+          scope: 'groups',
+          division: selectedDivision || undefined
+        });
+        if (cancelled) return;
+        const rows = res?.success ? res?.data?.playerStats || res?.data?.stats || [] : [];
+        setCardStatsByTeamId(aggregateTeamCardStatsFromPlayerRows(rows));
+      } catch {
+        if (!cancelled) setCardStatsByTeamId(new Map());
+      }
+    };
+
+    loadCardStats();
+    return () => {
+      cancelled = true;
+    };
+  }, [isFootballTournament, tournamentId, selectedDivision, silentStandingsNonce]);
+
   /**
    * Solo lectura: cuando el inventario BD (`standingsGamesRaw` = GET /games) llega igual o mejor al bracket API,
    * actualiza fecha, equipos, slots y marcador de texto de cada tarjeta sin esperar reload completo.
@@ -1254,7 +1746,15 @@ function PlacementsBracket({
 
     const thinTeams = buildThinTeamLookupForMerge(standingsTeamsRaw);
     const mergeInto = (prev) =>
-      mergeRoundsWithLatestInventory(prev, byId, thinTeams, standingsTeamsRaw, standingsGamesRaw, divKey);
+      mergeRoundsWithLatestInventory(
+        prev,
+        byId,
+        thinTeams,
+        standingsTeamsRaw,
+        standingsGamesRaw,
+        divKey,
+        slotResolutionOptionsRef.current
+      );
 
     setRounds((prev) => mergeInto(prev));
     setRankedRounds((prev) => mergeInto(prev));
@@ -1268,7 +1768,8 @@ function PlacementsBracket({
     poolScoresSyncEpoch,
     scoresCanvasHydrateNonce,
     silentStandingsNonce,
-    poolReadOnlyPollNonce
+    poolReadOnlyPollNonce,
+    cardStatsByTeamId
   ]);
 
   /*
@@ -1656,11 +2157,23 @@ function PlacementsBracket({
                   game.stats_slot_visitor != null ? String(game.stats_slot_visitor).trim() : '';
                 const resolvedLocal =
                   !localIdStr && localSlotRaw
-                    ? resolveStatsSlotToTeam(localSlotRaw, teams, selectedDivision, allGamesRows)
+                    ? resolveStatsSlotToTeam(
+                        localSlotRaw,
+                        teams,
+                        selectedDivision,
+                        allGamesRows,
+                        slotResolutionOptionsRef.current
+                      )
                     : null;
                 const resolvedVisitor =
                   !visitorIdStr && visitorSlotRaw
-                    ? resolveStatsSlotToTeam(visitorSlotRaw, teams, selectedDivision, allGamesRows)
+                    ? resolveStatsSlotToTeam(
+                        visitorSlotRaw,
+                        teams,
+                        selectedDivision,
+                        allGamesRows,
+                        slotResolutionOptionsRef.current
+                      )
                     : null;
                 const rawDate = String(game.game_date || '').split('T')[0];
                 const rawTime = String(game.game_time || '').trim();
@@ -3278,6 +3791,8 @@ function PlacementsBracket({
     const CANVAS_BREAK_GAP_PX = 130;
     const CARD_HEIGHT = Math.max(96, Math.round((matchCardHeight - 18)));
     const BASE_GAP = Math.max(8, Math.round(14 * cardScale));
+    const FOOTBALL_MAIN_BOTTOM_PAD_PX = 20;
+    const isFootballMainCanvas = isFootballTournament && !isRankedView && !isMergedRankedView;
     const firstRoundMatches = Math.max(1, displayedRounds[0]?.matches?.length || 1);
 
     const getCanvasBreakCount = (round) => {
@@ -3302,7 +3817,9 @@ function PlacementsBracket({
       (firstRoundMatches * CARD_HEIGHT) +
       ((firstRoundMatches - 1) * BASE_GAP) +
       (firstRoundBreaks * CANVAS_BREAK_GAP_PX);
-    const roundCapacityHeight = Math.max(baseCapacityHeight, firstRoundContentMinHeight + 24);
+    const roundCapacityHeight = isFootballMainCanvas
+      ? (firstRoundMatches * 64) + ((firstRoundMatches - 1) * 12) + FOOTBALL_MAIN_BOTTOM_PAD_PX
+      : Math.max(baseCapacityHeight, firstRoundContentMinHeight + 24);
 
     const firstRoundGap = (useDynamicGap && firstRoundMatches > 1)
       ? Math.max(MIN_GAP_PX, Math.min(MAX_GAP_PX, (roundCapacityHeight - 32 - (firstRoundMatches * CARD_HEIGHT)) / (firstRoundMatches - 1)))
@@ -3353,12 +3870,15 @@ function PlacementsBracket({
       
 
     return { roundLayouts, roundCapacityHeight };
-  }, [displayedRounds, cardScale, matchCardHeight, isMergedRankedView]);
+  }, [displayedRounds, cardScale, matchCardHeight, isMergedRankedView, isFootballTournament, isRankedView]);
   
 
-  const layoutPhaseColumns = Math.max(BRACKET_REFERENCE_PHASE_COUNT, displayedRounds.length);
-  const phaseWidthReference =
-    displayedRounds.length > BRACKET_REFERENCE_PHASE_COUNT
+  const layoutPhaseColumns = isFootballTournament
+    ? displayedRounds.length
+    : Math.max(BRACKET_REFERENCE_PHASE_COUNT, displayedRounds.length);
+  const phaseWidthReference = isFootballTournament
+    ? Math.max(1, displayedRounds.length)
+    : displayedRounds.length > BRACKET_REFERENCE_PHASE_COUNT
       ? displayedRounds.length
       : BRACKET_REFERENCE_PHASE_COUNT;
 
@@ -3379,7 +3899,10 @@ function PlacementsBracket({
     const getMatchRectFromNode = (node) => {
       if (!node) return null;
       const matchCard = node.closest('.placements-match-card');
-      return (matchCard || node).getBoundingClientRect();
+      if (!matchCard) return node.getBoundingClientRect();
+      const footballBody = matchCard.querySelector('.placements-football-card-body');
+      const target = footballBody || matchCard;
+      return target.getBoundingClientRect();
     };
 
     const nextPaths = connectors
@@ -3396,7 +3919,11 @@ function PlacementsBracket({
       if (!toRect) return null;
       const end = toLocalPoint(toRect, 'left');
 
-      const elbowOffset = Math.max(24, Math.min(52, (end.x - start.x) * 0.35));
+      const gapWidth = Math.max(0, end.x - start.x);
+      const isFootballBoard = board.classList.contains('placements-bracket-board--football-like');
+      const elbowOffset = isFootballBoard
+        ? Math.max(20, Math.min(gapWidth * 0.5, gapWidth - 20))
+        : Math.max(24, Math.min(52, gapWidth * 0.35));
       const midX = start.x + elbowOffset;
       return {
         id: `${link.type}-${link.from}-${link.to || index}`,
@@ -3543,21 +4070,23 @@ function PlacementsBracket({
       ) : null}
 
       <div
-        className={`placements-bracket-board placements-bracket-board--${activeBracketViewProp}`}
+        className={`placements-bracket-board placements-bracket-board--${activeBracketViewProp} ${
+          isFootballTournament ? 'placements-bracket-board--football-like' : ''
+        }`}
         ref={boardRef}
         style={{
           '--phase-columns': layoutPhaseColumns,
           '--phase-width-reference': phaseWidthReference,
           '--active-phase-count': displayedRounds.length,
           '--round-capacity-height': `${bracketGeometry.roundCapacityHeight}px`,
-          '--match-card-height': `${matchCardHeight}px`,
+          '--match-card-height': isFootballTournament ? '64px' : `${matchCardHeight}px`,
           '--card-scale': cardScale
         }}
       >
         <div className="placements-bracket-stage">
         <div className="placements-phase-row">
           {displayedRounds.map((round) => (
-            <div key={`${round.id}-title`} className="placements-phase-cell">
+            <div key={`${round.id}-title`} className={`placements-phase-cell ${isFootballTournament ? 'placements-phase-cell--football-like' : ''}`}>
               {round.title}
             </div>
           ))}
@@ -3575,6 +4104,7 @@ function PlacementsBracket({
                         (nextRoundForCurrent?.matches || []).map((m) => String(m.id))
                       );
                       const isRankedForPhase = activeBracketViewProp === 'ranked';
+                      const layoutUsesRankedRules = isRankedForPhase;
                       /** True si existe enlace desde un partido de la ronda anterior hacia el match `m` (por matchId). */
                       const matchReceivesFromPrevRound = (m) =>
                         prevRoundForCurrent &&
@@ -3596,8 +4126,8 @@ function PlacementsBracket({
                             nextRoundMatchIdsForCurrent.has(String(toParsed.matchId))
                           );
                         });
-                      const phaseMatchEvaluations = isRankedForPhase
-                        ? buildPhaseMatchEvaluationsForRound(round, roundIndex, displayedRounds, displayedManualLinks, isRankedForPhase)
+                      const phaseMatchEvaluations = (isFootballTournament || layoutUsesRankedRules)
+                        ? buildPhaseMatchEvaluationsForRound(round, roundIndex, displayedRounds, displayedManualLinks, true)
                         : [];
                       const getMatchEvaluation = (matchId) => phaseMatchEvaluations.find((e) => String(e.matchId) === String(matchId));
                       const { roundMatchesStyle, getMatchCardLayout } = (() => {
@@ -3614,6 +4144,71 @@ function PlacementsBracket({
                        * En getLastPhaseLayoutForMatch el mismo nombre es por partido evaluado (índice en round.matches).
                        */
                       const matchesBeforeForThisMatch = Math.max(0, (currentPhaseMatches ?? 0) - 1);
+
+                      if (isFootballTournament) {
+                        const isPenultimatePhase = roundIndex === displayedRounds.length - 2;
+                        const getFootballMatchesBefore = (matchId) => {
+                          const idx = (round?.matches || []).findIndex(
+                            (m) => String(m.id) === String(matchId)
+                          );
+                          return idx >= 0 ? idx : 0;
+                        };
+                        const getFootballLayoutForEvaluation = (e, matchesBeforeForThisMatch = 0) =>
+                          footballLayoutFromPhaseEvaluation(e, {
+                            roundIndex,
+                            totalPhases,
+                            matchesBeforeForThisMatch,
+                            isPoolBracketsPage
+                          });
+                        const footballRoundLayout = (() => {
+                          if (isPenultimatePhase && phaseMatchEvaluations.length > 0) {
+                            const evalWithPrevAndNext = phaseMatchEvaluations.find(
+                              (ev) => ev.hasConnectorsFromPrev && ev.hasConnectorsToNext
+                            );
+                            const evalPick = evalWithPrevAndNext ?? phaseMatchEvaluations[0];
+                            return getFootballLayoutForEvaluation(
+                              evalPick,
+                              getFootballMatchesBefore(evalPick.matchId)
+                            );
+                          }
+                          return getFootballRoundFallbackLayout(roundIndex, totalPhases, 0, isPoolBracketsPage);
+                        })();
+                        const gapPx = bracketGeometry.roundLayouts[roundIndex]?.gapPx ?? 14;
+                        const offsetPx = bracketGeometry.roundLayouts[roundIndex]?.offsetPx ?? 0;
+                        const useFixed = Boolean(footballRoundLayout);
+                        const usePenPhaseTwoGamesAlign = Boolean(
+                          footballRoundLayout?.alignTopOffset !== undefined
+                        );
+                        return {
+                          roundMatchesStyle: {
+                            '--round-gap': useFixed ? footballRoundLayout.gap : `${gapPx}px`,
+                            '--margin-top':
+                              footballRoundLayout?.marginTop != null &&
+                              String(footballRoundLayout.marginTop).trim() !== ''
+                                ? footballRoundLayout.marginTop
+                                : '0px',
+                            '--round-offset': canVisualDrag
+                              ? '0px'
+                              : (useFixed ? footballRoundLayout.offset : `${offsetPx}px`),
+                            '--round-match-card-top-offset': usePenPhaseTwoGamesAlign
+                              ? (footballRoundLayout.alignTopOffset || '0px')
+                              : '0px'
+                          },
+                          getMatchCardLayout: (matchId) => {
+                            const matchesBeforeForThisMatch = getFootballMatchesBefore(matchId);
+                            const evaluation = getMatchEvaluation(matchId);
+                            return evaluation
+                              ? getFootballLayoutForEvaluation(evaluation, matchesBeforeForThisMatch)
+                              : getFootballRoundFallbackLayout(
+                                  roundIndex,
+                                  totalPhases,
+                                  matchesBeforeForThisMatch,
+                                  isPoolBracketsPage
+                                );
+                          }
+                        };
+                      }
+
                       const main = {
                         secondPhaseTwoGames: { gap: '220px', offset: '60px' },
                         laterPhaseFewGames: { gap: '100px', offset: '280px' },
@@ -3666,22 +4261,19 @@ function PlacementsBracket({
 
                       const isPenultimatePhase = roundIndex === displayedRounds.length - 2;
 
-                      const fixedLayouts = {
-                        1: (!isRanked && prevPhaseMatches === 2 ) ? c.secondPhaseTwoGames 
-                        : (isRanked && prevPhaseMatches === 0) ? c.laterPhaseFewGames
-                        :(!isRanked && prevPhaseMatches === 0 ) ? c.twoPhasesmany 
-                        : c.phase1,
-                        2: (!isRanked && prevPhaseMatches <= 2 ) ? c.laterPhaseFewGames 
-                        : (isRanked && prevPhaseMatches === 0) ? c.laterPhaseFewGames
-                        : c.phase2Many
-                      };
+                      const fixedLayouts = buildDefaultFixedLayouts({
+                        c,
+                        prevPhaseMatches,
+                        layoutUsesRankedRules
+                      });
 
-                      const layoutFromPhaseEvaluation = (e) => {
-                        if (e.isRanked && e.hasConnectorsToNext && !e.hasConnectorsFromPrev) return c.penPhase;
-                        if (e.isRanked && !e.hasConnectorsFromPrev && !e.hasConnectorsToNext) return c.finalPhase;
-                        if (e.isRanked && e.hasConnectorsFromPrev && e.hasConnectorsToNext) return c.penPhaseTwoGames;
-                        return fixedLayouts[roundIndex];
-                      };
+                      const layoutFromPhaseEvaluation = (e) =>
+                        defaultLayoutFromPhaseEvaluation(e, {
+                          layoutUsesRankedRules,
+                          c,
+                          roundIndex,
+                          fixedLayouts
+                        });
 
                       const penultimatePhaseLayout = isPenultimatePhase
                         ? (phaseMatchEvaluations.length === 0
@@ -3732,9 +4324,9 @@ function PlacementsBracket({
                         const next2NeighborHasPrev =
                           next2NeighborMatch != null && matchReceivesFromPrevRound(next2NeighborMatch);
 
-                        /** Ranked y hay partido arriba y abajo en la columna, y ninguno recibe de la fase anterior. */
+                        /** Ranked/fútbol: hay partido arriba y abajo en la columna, y ninguno recibe de la fase anterior. */
                         const rankedNeighborsVerticalBothWithoutPrev =
-                          isRanked &&
+                          layoutUsesRankedRules &&
                           prevNeighborMatch != null &&
                           nextNeighborMatch != null &&
                           !prevNeighborHasPrev &&
@@ -3744,7 +4336,7 @@ function PlacementsBracket({
 
                         /*Reglas de layout para el ultimo partido de fase*/
 
-                        if (!isRanked) {
+                        if (!layoutUsesRankedRules) {
                           if (currentPhaseMatches === 1 && totalPhases === 3 && firstPhaseMatches === 4) {
                             return c.laterPhaseFewphases;
                           }
@@ -3833,7 +4425,7 @@ function PlacementsBracket({
                     </button>
                   ) : null}
                   <div
-                    className={`placements-round-matches placements-round-matches--${activeBracketViewProp} ${activeBracketViewProp === 'ranked' ? 'placements-round-matches--ranked-gap-by-match' : ''}`}
+                    className={`placements-round-matches placements-round-matches--${activeBracketViewProp} ${activeBracketViewProp === 'ranked' || isFootballTournament ? 'placements-round-matches--ranked-gap-by-match' : ''}`}
                     style={roundMatchesStyle}
                     onDragOverCapture={canVisualDrag ? handleContainerDragOverCapture(round) : undefined}
                     onDragOver={canVisualDrag ? handleContainerDragOver(round) : undefined}
@@ -3880,7 +4472,9 @@ function PlacementsBracket({
                     const isDragOver = dragOverMatchIndex?.roundId === round.id && dragOverMatchIndex?.matchIndex === matchIndex;
                     const matchEval = getMatchEvaluation(match.id);
                     const gapPxFallback = bracketGeometry.roundLayouts[roundIndex]?.gapPx ?? 14;
-                    const matchCardLayout = activeBracketViewProp === 'ranked' ? getMatchCardLayout(match.id) : null;
+                    const matchCardLayout = (activeBracketViewProp === 'ranked' || isFootballTournament)
+                      ? getMatchCardLayout(match.id)
+                      : null;
                     const hasConnectorsFromPrevForMatch =
                       matchEval?.hasConnectorsFromPrev ?? matchReceivesFromPrevRound(match);
                     const hasConnectorsToNextForMatch =
@@ -3896,6 +4490,7 @@ function PlacementsBracket({
                     );
                     const poolGameId = readOnly && onGameNavigate ? extractGameIdFromMatch(match) : 0;
                     const isPoolGameNavigable = poolGameId > 0;
+                    const useFootballCardStyle = Boolean(isFootballTournament);
                     return (
                   <React.Fragment key={`${round.id}-${match.id}`}>
                     {canVisualDrag ? (
@@ -3909,11 +4504,13 @@ function PlacementsBracket({
                     ) : null}
                   <article
                     className={`placements-match-card placements-match-card--${activeBracketViewProp} ${isLinkMode && !readOnly ? 'placements-match-card-link-mode' : ''} ${
-                      activeBracketViewProp === 'ranked' ? 'placements-match-card-gap-by-match' : (hasCanvasBreak ? 'placements-match-card-canvas-break' : '')
-                    } ${canVisualDrag ? 'placements-match-card-draggable' : ''} ${isPoolGameNavigable ? 'placements-match-card--game-link' : ''}`}
+                      activeBracketViewProp === 'ranked' || isFootballTournament ? 'placements-match-card-gap-by-match' : (hasCanvasBreak ? 'placements-match-card-canvas-break' : '')
+                    } ${canVisualDrag ? 'placements-match-card-draggable' : ''} ${isPoolGameNavigable ? 'placements-match-card--game-link' : ''} ${
+                      useFootballCardStyle ? 'placements-match-card--football-like' : ''
+                    }`}
                     style={{
                       ...(canVisualDrag && isDragOver ? { outline: '2px dashed #4f67d8', outlineOffset: '2px' } : {}),
-                      ...(activeBracketViewProp === 'ranked' ? {
+                      ...(activeBracketViewProp === 'ranked' || isFootballTournament ? {
                         '--round-gap': matchCardLayout?.gap ?? `${gapPxFallback}px`,
                         '--margin-top':
                           matchCardLayout?.marginTop != null && String(matchCardLayout.marginTop).trim() !== ''
@@ -3966,7 +4563,73 @@ function PlacementsBracket({
                       }
                     }}
                   >
-                    <div className="placements-match-card-actions">
+                    {useFootballCardStyle ? (
+                      <>
+                        <FootballCardMeta gameDate={match.gameDate} gameLocation={match.gameLocation} />
+                        <div className="placements-football-card-body">
+                          <PlacementsMatchTeamRowsWithScores
+                            tournamentId={tournamentId}
+                            match={match}
+                            round={round}
+                            roundIndex={roundIndex}
+                            readOnly={readOnly}
+                            useGoalTotalsForScores={useGoalTotalsForScores}
+                            bracketReloadTick={bracketReloadTick}
+                            scoresSyncNonce={
+                              silentStandingsNonce +
+                              scoresCanvasHydrateNonce +
+                              Number(poolScoresSyncEpoch ?? 0) +
+                              poolReadOnlyPollNonce
+                            }
+                            selectedSource={selectedSource}
+                            handleLinkTargetSelection={handleLinkTargetSelection}
+                            handleTeamSelection={handleTeamSelection}
+                            handleScoreChange={handleScoreChange}
+                            activeBracketViewProp={activeBracketViewProp}
+                            teamOptions={teamOptions}
+                            selectedDivision={selectedDivision}
+                            standingsTeams={standingsTeamsRaw}
+                            standingsGames={standingsGamesRaw}
+                            slotResolutionOptions={slotResolutionOptions}
+                            onStatsSlotFieldChange={handleStatsSlotFieldChange}
+                            onStatsSlotFieldBlur={handleStatsSlotFieldBlur}
+                            isPoolBracketsPage={isPoolBracketsPage}
+                            bracketSlotMatchByGameNum={bracketAdvanceSourceByGameNum}
+                            statsSlotPlaceholder={
+                              activeBracketViewProp === 'ranked' ? '1A ó L73' : '1A, W12…'
+                            }
+                            statsSlotFieldTitle="Tabla de grupos (ej. 1A) y/o resultado de otro partido del torneo: W + número = ganador del juego con ese número en la tarjeta; L + número = perdedor."
+                            incomingAdvanceDisplays={[
+                              getIncomingAdvanceDisplay(displayedManualLinks, incomingLookupRounds, match.id, 0),
+                              getIncomingAdvanceDisplay(displayedManualLinks, incomingLookupRounds, match.id, 1)
+                            ]}
+                            useFootballCardStyle
+                          />
+                        </div>
+                        {!readOnly ? (
+                          <div className="placements-football-card-edit-bar">
+                            <span className="placements-football-card-game-num">
+                              {Number.isInteger(Number(match.gameNum)) && Number(match.gameNum) > 0
+                                ? `Juego ${Number(match.gameNum)}`
+                                : match.gameId
+                                  ? `Juego ${match.gameId}`
+                                  : 'Juego sin ID'}
+                            </span>
+                            <button
+                              type="button"
+                              className="placements-football-remove-btn"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                handleRemoveMatch(round.id, match.id);
+                              }}
+                            >
+                              Eliminar
+                            </button>
+                          </div>
+                        ) : null}
+                      </>
+                    ) : (
+                      <div className="placements-match-card-actions">
                       {match?.sourceCanvasName && !isPoolRankedView ? (
                         <span className="placements-match-canvas-name">{match.sourceCanvasName}</span>
                       ) : null}
@@ -4074,7 +4737,9 @@ function PlacementsBracket({
                         </>
                       )}
                     </div>
-                    <div className="placements-match-datetime">
+                    )}
+                    {!useFootballCardStyle ? (
+                      <div className="placements-match-datetime">
                       <label className="placements-datetime-label">
                         <span>Fecha</span>
                         <input
@@ -4115,44 +4780,48 @@ function PlacementsBracket({
                         />
                       </label>
                     </div>
-                    <PlacementsMatchTeamRowsWithScores
-                      tournamentId={tournamentId}
-                      match={match}
-                      round={round}
-                      roundIndex={roundIndex}
-                      readOnly={readOnly}
-                      useGoalTotalsForScores={useGoalTotalsForScores}
-                      bracketReloadTick={bracketReloadTick}
-                      scoresSyncNonce={
-                        silentStandingsNonce +
-                        scoresCanvasHydrateNonce +
-                        Number(poolScoresSyncEpoch ?? 0) +
-                        poolReadOnlyPollNonce
-                      }
-                      selectedSource={selectedSource}
-                      handleLinkTargetSelection={handleLinkTargetSelection}
-                      handleTeamSelection={handleTeamSelection}
-                      handleScoreChange={handleScoreChange}
-                      activeBracketViewProp={activeBracketViewProp}
-                      teamOptions={teamOptions}
-                      selectedDivision={selectedDivision}
-                      standingsTeams={standingsTeamsRaw}
-                      standingsGames={standingsGamesRaw}
-                      onStatsSlotFieldChange={handleStatsSlotFieldChange}
-                      onStatsSlotFieldBlur={handleStatsSlotFieldBlur}
-                      isPoolBracketsPage={isPoolBracketsPage}
-                      bracketSlotMatchByGameNum={bracketAdvanceSourceByGameNum}
-                      statsSlotPlaceholder={
-                        activeBracketViewProp === 'ranked'
-                          ? '1A ó L73'
-                          : '1A, W12…'
-                      }
-                      statsSlotFieldTitle="Tabla de grupos (ej. 1A) y/o resultado de otro partido del torneo: W + número = ganador del juego con ese número en la tarjeta; L + número = perdedor."
-                      incomingAdvanceDisplays={[
-                        getIncomingAdvanceDisplay(displayedManualLinks, incomingLookupRounds, match.id, 0),
-                        getIncomingAdvanceDisplay(displayedManualLinks, incomingLookupRounds, match.id, 1)
-                      ]}
-                    />
+                    ) : null}
+                    {!useFootballCardStyle ? (
+                      <PlacementsMatchTeamRowsWithScores
+                        tournamentId={tournamentId}
+                        match={match}
+                        round={round}
+                        roundIndex={roundIndex}
+                        readOnly={readOnly}
+                        useGoalTotalsForScores={useGoalTotalsForScores}
+                        bracketReloadTick={bracketReloadTick}
+                        scoresSyncNonce={
+                          silentStandingsNonce +
+                          scoresCanvasHydrateNonce +
+                          Number(poolScoresSyncEpoch ?? 0) +
+                          poolReadOnlyPollNonce
+                        }
+                        selectedSource={selectedSource}
+                        handleLinkTargetSelection={handleLinkTargetSelection}
+                        handleTeamSelection={handleTeamSelection}
+                        handleScoreChange={handleScoreChange}
+                        activeBracketViewProp={activeBracketViewProp}
+                        teamOptions={teamOptions}
+                        selectedDivision={selectedDivision}
+                        standingsTeams={standingsTeamsRaw}
+                        standingsGames={standingsGamesRaw}
+                        slotResolutionOptions={slotResolutionOptions}
+                        onStatsSlotFieldChange={handleStatsSlotFieldChange}
+                        onStatsSlotFieldBlur={handleStatsSlotFieldBlur}
+                        isPoolBracketsPage={isPoolBracketsPage}
+                        bracketSlotMatchByGameNum={bracketAdvanceSourceByGameNum}
+                        statsSlotPlaceholder={
+                          activeBracketViewProp === 'ranked'
+                            ? '1A ó L73'
+                            : '1A, W12…'
+                        }
+                        statsSlotFieldTitle="Tabla de grupos (ej. 1A) y/o resultado de otro partido del torneo: W + número = ganador del juego con ese número en la tarjeta; L + número = perdedor."
+                        incomingAdvanceDisplays={[
+                          getIncomingAdvanceDisplay(displayedManualLinks, incomingLookupRounds, match.id, 0),
+                          getIncomingAdvanceDisplay(displayedManualLinks, incomingLookupRounds, match.id, 1)
+                        ]}
+                      />
+                    ) : null}
                   </article>
                   </React.Fragment>
                     );

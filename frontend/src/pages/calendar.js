@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import Navbar from '../components/navbar';
 import Noauth_Navbar from '../components/noauth_Navbar';
+import SeoHead from '../components/SeoHead';
+import { DEFAULT_SITE_DESCRIPTION, DEFAULT_SITE_TITLE } from '../config/siteConfig';
 import { useAuth } from '../hooks/useAuth';
 import { useGameMatchScore } from '../hooks/useGameMatchScore';
-import { configService } from '../services/configService';
-import { mapTournamentGamesToScheduleRows } from '../utils/scheduleGameMapper';
+import { useResolvedTournamentId } from '../hooks/useResolvedTournamentId';
+import { useTournamentScheduleData } from '../hooks/useTournamentScheduleData';
 import {
   formatDateHeader,
   formatGameDateTime,
@@ -127,92 +129,28 @@ function CalendarPage() {
   const hasToken = localStorage.getItem('token') !== null;
   const isUserAuthenticated = isAuthenticated || hasToken;
 
-  const [tournaments, setTournaments] = useState([]);
-  const [games, setGames] = useState([]);
+  const tournamentId = useResolvedTournamentId();
+  const { tournaments, games, loading, error, activeTournament } = useTournamentScheduleData(tournamentId, 'calendar');
+
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedDate, setSelectedDate] = useState('all');
   const [selectedTeam, setSelectedTeam] = useState('all');
   const [selectedLocation, setSelectedLocation] = useState('all');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const featuredTournament = tournaments[0] || null;
 
-  const [searchParams] = useSearchParams();
-  const tournamentPinnedId = useMemo(() => {
-    const raw = searchParams.get('tournamentId');
-    if (raw == null || String(raw).trim() === '') return null;
-    const n = Number(String(raw).trim());
-    return Number.isFinite(n) && n > 0 ? n : null;
-  }, [searchParams]);
-
-  const gamesScoped = useMemo(() => {
-    if (tournamentPinnedId == null) return games;
-    return games.filter((g) => Number(g.tournamentId) === tournamentPinnedId);
-  }, [games, tournamentPinnedId]);
-
-  const pinnedTournamentName = useMemo(() => {
-    if (tournamentPinnedId == null) return '';
-    const t = tournaments.find((x) => Number(x.torneo_id) === tournamentPinnedId);
-    return t?.name != null && String(t.name).trim() !== '' ? String(t.name).trim() : '';
-  }, [tournaments, tournamentPinnedId]);
+  const pinnedTournamentName =
+    activeTournament?.name != null && String(activeTournament.name).trim() !== ''
+      ? String(activeTournament.name).trim()
+      : '';
 
   useEffect(() => {
-    let cancelled = false;
-
-    const loadData = async () => {
-      try {
-        setLoading(true);
-        setError('');
-        setTournaments([]);
-        setGames([]);
-        setSelectedCategory('all');
-        setSelectedDate('all');
-        setSelectedTeam('all');
-        setSelectedLocation('all');
-
-        const tournamentsResponse = await configService.getTournaments();
-        if (cancelled) return;
-
-        if (!tournamentsResponse.success) {
-          throw new Error(tournamentsResponse.message || 'No se pudieron cargar los torneos.');
-        }
-
-        const tournamentsData = tournamentsResponse.data?.tournaments || [];
-        setTournaments(tournamentsData);
-
-        if (tournamentsData.length === 0) return;
-
-        const [teamsResponses, gameResponses] = await Promise.all([
-          Promise.allSettled(tournamentsData.map((tournament) => configService.getTeams(tournament.torneo_id))),
-          Promise.allSettled(tournamentsData.map((tournament) => configService.getGames(tournament.torneo_id)))
-        ]);
-        if (cancelled) return;
-
-        const mergedGames = mapTournamentGamesToScheduleRows({
-          tournamentsData,
-          teamsResponses,
-          gameResponses,
-          variant: 'calendar'
-        });
-
-        setGames(mergedGames);
-      } catch (loadError) {
-        if (!cancelled) {
-          setError(loadError.response?.data?.message || loadError.message || 'Error al cargar datos del calendario.');
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-
-    loadData();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    setSelectedCategory('all');
+    setSelectedDate('all');
+    setSelectedTeam('all');
+    setSelectedLocation('all');
+  }, [tournamentId]);
 
   const orderedGames = useMemo(() => {
-    return [...gamesScoped].sort((a, b) => {
+    return [...games].sort((a, b) => {
       const aValue = `${a.date}T${a.time || '00:00'}`;
       const bValue = `${b.date}T${b.time || '00:00'}`;
       const cmp = aValue.localeCompare(bValue);
@@ -223,7 +161,7 @@ function CalendarPage() {
         typeof b.gameNum === 'number' && Number.isFinite(b.gameNum) ? b.gameNum : Number.MAX_SAFE_INTEGER;
       return aGameNum - bGameNum;
     });
-  }, [gamesScoped]);
+  }, [games]);
 
   const categoryOptions = useMemo(
     () => [...new Set(orderedGames.map((game) => game.category).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es')),
@@ -302,14 +240,29 @@ function CalendarPage() {
 
   return (
     <div className="calendar-page">
+      <SeoHead
+        title={
+          pinnedTournamentName
+            ? `Calendario — ${pinnedTournamentName} | ${DEFAULT_SITE_TITLE}`
+            : `Calendario de torneos | ${DEFAULT_SITE_TITLE}`
+        }
+        description={
+          pinnedTournamentName
+            ? `Partidos, horarios y resultados del torneo ${pinnedTournamentName}.`
+            : 'Consulta el calendario de partidos de todos los torneos en Herastats.'
+        }
+        pathname="/calendar"
+        search={tournamentId ? `tournamentId=${tournamentId}` : ''}
+        image={activeTournament?.image_url || undefined}
+      />
       <div className="calendar-topbar">
-        {isUserAuthenticated ? <Navbar /> : <Noauth_Navbar />}
+        {isUserAuthenticated ? <Navbar tournamentId={tournamentId} /> : <Noauth_Navbar />}
       </div>
 
       <main className="calendar-content">
         <header className="calendar-header">
           <h1>Calendario de Torneo</h1>
-          {tournamentPinnedId != null ? (
+          {tournamentId != null ? (
             <p className="calendar-pinned-hint">
               Mostrando partidos de este torneo
               {pinnedTournamentName ? <strong>{` · ${pinnedTournamentName}`}</strong> : null}.
@@ -388,19 +341,19 @@ function CalendarPage() {
           </div>
         ) : null}
 
-        {!loading && !error && featuredTournament ? (
+        {!loading && !error && activeTournament ? (
           <section className="calendar-header-card-wrap">
             <article className="calendar-tournament-card">
               <div className="calendar-tournament-content">
-                {featuredTournament.image_url ? (
-                  <img src={featuredTournament.image_url} alt={featuredTournament.name} loading="lazy" decoding="async" />
+                {activeTournament.image_url ? (
+                  <img src={activeTournament.image_url} alt={activeTournament.name} loading="lazy" decoding="async" />
                 ) : (
                   <div className="calendar-tournament-placeholder">Sin imagen</div>
                 )}
                 <div className="calendar-tournament-meta">
-                  <h2>{featuredTournament.name}</h2>
-                  <p><strong>Año:</strong> {featuredTournament.year}</p>
-                  {featuredTournament.country ? <p><strong>Pais:</strong> {featuredTournament.country}</p> : null}
+                  <h2>{activeTournament.name}</h2>
+                  <p><strong>Año:</strong> {activeTournament.year}</p>
+                  {activeTournament.country ? <p><strong>Pais:</strong> {activeTournament.country}</p> : null}
                 </div>
               </div>
             </article>

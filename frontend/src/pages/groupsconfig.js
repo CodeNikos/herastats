@@ -35,6 +35,11 @@ const shuffleTeams = (items) => {
   return array;
 };
 
+const sortTeamsByName = (items) =>
+  [...items].sort((a, b) =>
+    String(a?.name || '').localeCompare(String(b?.name || ''), 'es', { sensitivity: 'base' })
+  );
+
 function CalendarConfig() {
   const { id: routeTournamentId } = useParams();
   const location = useLocation();
@@ -85,7 +90,10 @@ function CalendarConfig() {
   }, [tournamentId]);
 
   const teamsInDivision = useMemo(
-    () => teams.filter((team) => (team.division || '').toLowerCase() === division.toLowerCase()),
+    () =>
+      sortTeamsByName(
+        teams.filter((team) => (team.division || '').toLowerCase() === division.toLowerCase())
+      ),
     [teams, division]
   );
 
@@ -116,7 +124,7 @@ function CalendarConfig() {
 
     return groupOptions.map((group) => ({
       group,
-      teams: groupsMap[group]
+      teams: sortTeamsByName(groupsMap[group])
     }));
   }, [teamsInDivision, assignments, groupOptions]);
 
@@ -218,10 +226,10 @@ function CalendarConfig() {
             <input
               type="number"
               min="1"
-              max="8"
+              max="12"
               value={groupCount}
               disabled={savingGroups}
-              onChange={(event) => setGroupCount(Math.max(1, Math.min(8, Number(event.target.value) || 1)))}
+              onChange={(event) => setGroupCount(Math.max(1, Math.min(12, Number(event.target.value) || 1)))}
             />
           </label>
 

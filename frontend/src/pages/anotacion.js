@@ -4,8 +4,8 @@ import Navbar from '../components/navbar';
 import Noauth_Navbar from '../components/noauth_Navbar';
 import { useAuth } from '../hooks/useAuth';
 import { useGameMatchScore } from '../hooks/useGameMatchScore';
-import { configService } from '../services/configService';
-import { mapTournamentGamesToScheduleRows } from '../utils/scheduleGameMapper';
+import { useResolvedTournamentId } from '../hooks/useResolvedTournamentId';
+import { useTournamentScheduleData } from '../hooks/useTournamentScheduleData';
 import {
   isGameFinishedState,
   isGameOngoingState,
@@ -17,6 +17,8 @@ import {
   getMatchWinner,
   parseScoreValue
 } from '../utils/gameDisplayFormat';
+import { FOOTBALL_SPORT_ID } from '../utils/footballEventTypes';
+import { isAdminOrSuperuser } from '../utils/userRoles';
 
 import './anotacion.css';
 
@@ -81,8 +83,25 @@ function buildGamePagePath(game) {
   return `/game?${p.toString()}`;
 }
 
+/** Eventos post-partido fútbol (admin/superuser). */
+function buildFootballEventsPath(game) {
+  const p = new URLSearchParams();
+  p.set('tournamentId', String(game.tournamentId));
+  p.set('gameId', String(game.id));
+  if (game.homeTeamId != null) p.set('homeTeamId', String(game.homeTeamId));
+  if (game.awayTeamId != null) p.set('awayTeamId', String(game.awayTeamId));
+  p.set('homeTeamName', game.homeTeamName || '');
+  p.set('awayTeamName', game.awayTeamName || '');
+  return `/football_events?${p.toString()}`;
+}
+
 /** Fila del panel: marcador desde goal-totals (eventos), con fallback al listado getGames. */
-function AnotacionScheduleTableRow({ game, navigate, onIrAPrevioPartido }) {
+function AnotacionScheduleTableRow({
+  game,
+  navigate,
+  onIrAPrevioPartido,
+  canPostMatchFootball
+}) {
   const { localGoals, visitorGoals, loading, error } = useGameMatchScore(game.tournamentId, game.id, {
     enabled: Boolean(game.tournamentId && game.id)
   });
@@ -117,8 +136,12 @@ function AnotacionScheduleTableRow({ game, navigate, onIrAPrevioPartido }) {
         : '—';
 
   const livePath = buildLivePath(game);
+  const footballEventsPath = buildFootballEventsPath(game);
   const ongoing = isEstadoOngoing(game.estado);
   const finished = isEstadoFinished(game.estado);
+  const isFootball = Number(game.sportId) === FOOTBALL_SPORT_ID;
+  const showFootballPostMatch = finished && isFootball && canPostMatchFootball;
+  const actionDisabled = finished && !showFootballPostMatch;
 
   const gameNumLabel =
     game.gameNum != null && Number.isFinite(Number(game.gameNum)) && Number(game.gameNum) > 0
@@ -201,24 +224,30 @@ function AnotacionScheduleTableRow({ game, navigate, onIrAPrevioPartido }) {
       <td className="anotacion-td-meta anotacion-td-accion">
         <button
           type="button"
-          className={`anotacion-anotar-btn${finished ? ' anotacion-anotar-btn--finished' : ongoing ? ' anotacion-anotar-btn--ongoing' : ''}`}
-          disabled={finished}
+          className={`anotacion-anotar-btn${finished && !showFootballPostMatch ? ' anotacion-anotar-btn--finished' : ''}${ongoing ? ' anotacion-anotar-btn--ongoing' : ''}${showFootballPostMatch ? ' anotacion-anotar-btn--football-post' : ''}`}
+          disabled={actionDisabled}
           onClick={() => {
-            if (finished) return;
+            if (actionDisabled) return;
+            if (showFootballPostMatch) {
+              navigate(footballEventsPath);
+              return;
+            }
             if (ongoing) navigate(livePath);
             else onIrAPrevioPartido(game);
           }}
           title={
-            finished
-              ? 'Partido finalizado'
-              : ongoing
-                ? 'Ir al partido en vivo (live)'
-                : isEstadoUpcoming(game.estado)
-                  ? 'Previo al partido: posesión y arranque (game_events)'
-                  : 'Ir a previo del partido (game_events)'
+            showFootballPostMatch
+              ? 'Anotar goles, tarjetas y penales (partido finalizado)'
+              : finished
+                ? 'Partido finalizado'
+                : ongoing
+                  ? 'Ir al partido en vivo (live)'
+                  : isEstadoUpcoming(game.estado)
+                    ? 'Previo al partido: posesión y arranque (game_events)'
+                    : 'Ir a previo del partido (game_events)'
           }
         >
-          {finished ? 'Finalizado' : ongoing ? 'Ingresar' : 'Comenzar partido'}
+          {showFootballPostMatch ? 'Anotar eventos' : finished ? 'Finalizado' : ongoing ? 'Ingresar' : 'Comenzar partido'}
         </button>
       </td>
     </tr>
@@ -226,21 +255,25 @@ function AnotacionScheduleTableRow({ game, navigate, onIrAPrevioPartido }) {
 }
 
 function AnotacionPage() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const hasToken = localStorage.getItem('token') !== null;
   const isUserAuthenticated = isAuthenticated || hasToken;
+  const canPostMatchFootball = isAdminOrSuperuser(user);
   const navigate = useNavigate();
 
-  const [tournaments, setTournaments] = useState([]);
-  const [games, setGames] = useState([]);
+  const tournamentId = useResolvedTournamentId();
+  const { tournaments, games, loading, error, activeTournament } = useTournamentScheduleData(tournamentId, 'anotacion');
+
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedDate, setSelectedDate] = useState('all');
   const [selectedTeam, setSelectedTeam] = useState('all');
   const [selectedLocation, setSelectedLocation] = useState('all');
   const [selectedEstado, setSelectedEstado] = useState('all');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const featuredTournament = tournaments[0] || null;
+
+  const pinnedTournamentName =
+    activeTournament?.name != null && String(activeTournament.name).trim() !== ''
+      ? String(activeTournament.name).trim()
+      : '';
 
   /** Upcoming (y otros no Ongoing): ir a previo (game_events). El estado Ongoing en vivo se marca desde game_events. */
   const handleIrAPrevioPartido = (game) => {
@@ -252,60 +285,12 @@ function AnotacionPage() {
   };
 
   useEffect(() => {
-    let cancelled = false;
-
-    const loadData = async () => {
-      try {
-        setLoading(true);
-        setError('');
-        setTournaments([]);
-        setGames([]);
-        setSelectedCategory('all');
-        setSelectedDate('all');
-        setSelectedTeam('all');
-        setSelectedLocation('all');
-        setSelectedEstado('all');
-
-        const tournamentsResponse = await configService.getTournaments();
-        if (cancelled) return;
-
-        if (!tournamentsResponse.success) {
-          throw new Error(tournamentsResponse.message || 'No se pudieron cargar los torneos.');
-        }
-
-        const tournamentsData = tournamentsResponse.data?.tournaments || [];
-        setTournaments(tournamentsData);
-
-        if (tournamentsData.length === 0) return;
-
-        const [teamsResponses, gameResponses] = await Promise.all([
-          Promise.allSettled(tournamentsData.map((tournament) => configService.getTeams(tournament.torneo_id))),
-          Promise.allSettled(tournamentsData.map((tournament) => configService.getGames(tournament.torneo_id)))
-        ]);
-        if (cancelled) return;
-
-        const mergedGames = mapTournamentGamesToScheduleRows({
-          tournamentsData,
-          teamsResponses,
-          gameResponses,
-          variant: 'anotacion'
-        });
-
-        setGames(mergedGames);
-      } catch (loadError) {
-        if (!cancelled) {
-          setError(loadError.response?.data?.message || loadError.message || 'Error al cargar datos de anotación.');
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-
-    loadData();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    setSelectedCategory('all');
+    setSelectedDate('all');
+    setSelectedTeam('all');
+    setSelectedLocation('all');
+    setSelectedEstado('all');
+  }, [tournamentId]);
 
   const orderedGames = useMemo(() => {
     return [...games].sort((a, b) => {
@@ -429,12 +414,18 @@ function AnotacionPage() {
   return (
     <div className="anotacion-page">
       <div className="anotacion-topbar">
-        {isUserAuthenticated ? <Navbar /> : <Noauth_Navbar />}
+        {isUserAuthenticated ? <Navbar tournamentId={tournamentId} /> : <Noauth_Navbar />}
       </div>
 
       <main className="anotacion-content">
         <header className="anotacion-header">
           <h1>Panel de anotación</h1>
+          {tournamentId != null ? (
+            <p className="anotacion-pinned-hint">
+              Mostrando partidos de este torneo
+              {pinnedTournamentName ? <strong>{` · ${pinnedTournamentName}`}</strong> : null}.
+            </p>
+          ) : null}
         </header>
 
         {!loading && !error && orderedGames.length > 0 ? (
@@ -527,19 +518,19 @@ function AnotacionPage() {
           </div>
         ) : null}
 
-        {!loading && !error && featuredTournament ? (
+        {!loading && !error && activeTournament ? (
           <section className="anotacion-header-card-wrap">
             <article className="anotacion-tournament-card">
               <div className="anotacion-tournament-content">
-                {featuredTournament.image_url ? (
-                  <img src={featuredTournament.image_url} alt={featuredTournament.name} loading="lazy" decoding="async" />
+                {activeTournament.image_url ? (
+                  <img src={activeTournament.image_url} alt={activeTournament.name} loading="lazy" decoding="async" />
                 ) : (
                   <div className="anotacion-tournament-placeholder">Sin imagen</div>
                 )}
                 <div className="anotacion-tournament-meta">
-                  <h2>{featuredTournament.name}</h2>
-                  <p><strong>Año:</strong> {featuredTournament.year}</p>
-                  {featuredTournament.country ? <p><strong>Pais:</strong> {featuredTournament.country}</p> : null}
+                  <h2>{activeTournament.name}</h2>
+                  <p><strong>Año:</strong> {activeTournament.year}</p>
+                  {activeTournament.country ? <p><strong>Pais:</strong> {activeTournament.country}</p> : null}
                 </div>
               </div>
             </article>
@@ -585,6 +576,7 @@ function AnotacionPage() {
                       game={game}
                       navigate={navigate}
                       onIrAPrevioPartido={handleIrAPrevioPartido}
+                      canPostMatchFootball={canPostMatchFootball}
                     />
                   ))}
                 </tbody>

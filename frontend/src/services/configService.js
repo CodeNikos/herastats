@@ -338,6 +338,29 @@ export const configService = {
     }
   },
 
+  async updateGameEvent(tournamentId, gameId, eventId, payload) {
+    try {
+      const response = await api.patch(
+        `/config/tournament/${tournamentId}/games/${gameId}/events/${eventId}`,
+        payload
+      );
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  async deleteGameEvent(tournamentId, gameId, eventId) {
+    try {
+      const response = await api.delete(
+        `/config/tournament/${tournamentId}/games/${gameId}/events/${eventId}`
+      );
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
   /**
    * Forfeit: equipo que abandona; rival 15–0 sin goles/asistencias; finaliza el partido.
    * @param {number|string} tournamentId

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useLocation, useParams, useNavigate } from 'react-router-dom';
 import Navbar from '../components/navbar';
+import SeoHead from '../components/SeoHead';
+import { DEFAULT_SITE_DESCRIPTION, DEFAULT_SITE_TITLE } from '../config/siteConfig';
 import TournamentBracket from '../components/TournamentBracket';
 import PlacementsBracket from '../components/PlacementsBracket';
 import { configService } from '../services/configService';
@@ -10,66 +12,14 @@ import {
   HERASTATS_TOURNAMENT_COHERENCE,
   normalizeTournamentIdForCoherence
 } from '../utils/tournamentSync';
+import {
+  buildPlacementGrid,
+  placementRowLabel
+} from '../utils/poolbracketsPlacements';
 import './brackets.css';
 import './poolbrackets.css';
 
 const TEAM_FALLBACK_IMAGE = '/Hera_logo.png';
-
-/** Orden preferido de columnas (como en la referencia WFDF). */
-const PLACEMENT_DIVISION_ORDER = ['Open', "Women's", 'Mixed', 'Master Open', 'Master Mixed'];
-const MIN_PLACEMENT_ROWS = 10;
-
-function normalizeDivisionKey(value) {
-  return String(value ?? '')
-    .trim()
-    .toLowerCase();
-}
-
-function sortPlacementDivisions(divisions) {
-  const unique = [...new Set((divisions || []).map((d) => String(d).trim()).filter(Boolean))];
-  const orderIndex = (name) => {
-    const idx = PLACEMENT_DIVISION_ORDER.findIndex((label) => normalizeDivisionKey(label) === normalizeDivisionKey(name));
-    return idx >= 0 ? idx : PLACEMENT_DIVISION_ORDER.length + unique.indexOf(name);
-  };
-  return unique.sort((a, b) => {
-    const da = orderIndex(a);
-    const db = orderIndex(b);
-    if (da !== db) return da - db;
-    return a.localeCompare(b, 'es', { sensitivity: 'base' });
-  });
-}
-
-function buildPlacementGrid(rows) {
-  const divisions = sortPlacementDivisions((rows || []).map((r) => r.division));
-  const byKey = new Map();
-  for (const row of rows || []) {
-    const placementNum = Number(row.placement_number);
-    const division = String(row.division ?? '').trim();
-    if (!Number.isFinite(placementNum) || placementNum <= 0 || !division) continue;
-    byKey.set(`${placementNum}::${normalizeDivisionKey(division)}`, row);
-  }
-  const maxFromData = (rows || []).reduce((max, row) => {
-    const n = Number(row.placement_number);
-    return Number.isFinite(n) && n > max ? n : max;
-  }, 0);
-  const rowCount = Math.max(MIN_PLACEMENT_ROWS, maxFromData);
-  const tableRows = [];
-  for (let placementNum = 1; placementNum <= rowCount; placementNum += 1) {
-    const cells = divisions.map((division) => {
-      const hit = byKey.get(`${placementNum}::${normalizeDivisionKey(division)}`);
-      return hit || null;
-    });
-    tableRows.push({ placementNum, cells });
-  }
-  return { divisions, tableRows };
-}
-
-function placementRowLabel(placementNum) {
-  if (placementNum === 1) return { text: 'Gold', tone: 'gold', medal: true };
-  if (placementNum === 2) return { text: 'Silver', tone: 'silver', medal: true };
-  if (placementNum === 3) return { text: 'Bronze', tone: 'bronze', medal: true };
-  return { text: String(placementNum), tone: 'plain', medal: false };
-}
 
 /** Cada tarjeta de partido (PlacementsBracket) muestra fecha, hora y ubicación alineadas en la misma fila. */
 
@@ -80,8 +30,19 @@ function PoolBracketsPage() {
   const queryParams = new URLSearchParams(location.search);
   const queryTournamentId = queryParams.get('tournamentId');
   const tournamentId = routeTournamentId || queryTournamentId;
+  const isFootballTournament = Number(tournamentId) === 2;
+  const [tournamentDisplayName, setTournamentDisplayName] = useState('');
+  const [tournamentImageUrl, setTournamentImageUrl] = useState('');
   const [selectedDivision, setSelectedDivision] = useState('');
   const [activeBracketView, setActiveBracketView] = useState('all');
+
+  useEffect(() => {
+    if (!isFootballTournament) return;
+    if (activeBracketView === 'ranked' || activeBracketView === 'all') {
+      setActiveBracketView('main');
+    }
+  }, [isFootballTournament, activeBracketView]);
+
   const [rankedCanvasList, setRankedCanvasList] = useState([]);
   /** Tabla estadísticas/grupos en TournamentBracket (spinner solo al entrar en ruta / torneo). */
   const [routeReloadNonce, setRouteReloadNonce] = useState(0);
@@ -239,7 +200,7 @@ function PoolBracketsPage() {
     let cancelled = false;
 
     const loadRankedCanvases = async () => {
-      if (!tournamentId || activeBracketView !== 'all') {
+      if (!tournamentId || activeBracketView !== 'all' || isFootballTournament) {
         setRankedCanvasList([]);
         return;
       }
@@ -289,14 +250,14 @@ function PoolBracketsPage() {
   }, [tournamentId]);
 
   const handleToggleFinalPlacements = useCallback(() => {
-    setShowFinalPlacements((prev) => {
-      const next = !prev;
-      if (next && tournamentId) {
-        loadFinalPlacements();
-      }
-      return next;
-    });
-  }, [loadFinalPlacements, tournamentId]);
+    setShowFinalPlacements((prev) => !prev);
+  }, []);
+
+  useEffect(() => {
+    if (!showFinalPlacements || !tournamentId) return undefined;
+    loadFinalPlacements();
+    return undefined;
+  }, [showFinalPlacements, tournamentId, loadFinalPlacements, poolScoresSyncEpoch]);
 
   useEffect(() => {
     setShowFinalPlacements(false);
@@ -304,8 +265,56 @@ function PoolBracketsPage() {
     setFinalPlacementsError('');
   }, [tournamentId]);
 
+  useEffect(() => {
+    if (!tournamentId) {
+      setTournamentDisplayName('');
+      setTournamentImageUrl('');
+      return;
+    }
+    let cancelled = false;
+    configService.getTournamentById(tournamentId).then((res) => {
+      if (cancelled) return;
+      const t = res?.success ? res.data?.tournament : null;
+      setTournamentDisplayName(t?.name || '');
+      setTournamentImageUrl(t?.image_url || '');
+    }).catch(() => {
+      if (!cancelled) {
+        setTournamentDisplayName('');
+        setTournamentImageUrl('');
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [tournamentId]);
+
+  const poolSearch = useMemo(() => {
+    if (!tournamentId) return '';
+    const params = new URLSearchParams(location.search);
+    if (!params.get('tournamentId')) {
+      params.set('tournamentId', String(tournamentId));
+      if (!params.get('view')) params.set('view', 'all');
+    }
+    return params.toString();
+  }, [tournamentId, location.search]);
+
   return (
     <div className="brackets-page poolbrackets-page" data-game-card-border-hover>
+      <SeoHead
+        title={
+          tournamentDisplayName
+            ? `Brackets — ${tournamentDisplayName} | ${DEFAULT_SITE_TITLE}`
+            : `Pool & Brackets | ${DEFAULT_SITE_TITLE}`
+        }
+        description={
+          tournamentDisplayName
+            ? `Cuadros, pools y posiciones finales del torneo ${tournamentDisplayName}.`
+            : DEFAULT_SITE_DESCRIPTION
+        }
+        pathname="/poolbrackets"
+        search={poolSearch}
+        image={tournamentImageUrl || undefined}
+      />
       <div className="brackets-topbar">
         <Navbar tournamentId={tournamentId} />
       </div>
@@ -442,8 +451,10 @@ function PoolBracketsPage() {
               activeBracketView={activeBracketView}
               onBracketViewChange={setActiveBracketView}
               routeReloadNonce={routeReloadNonce}
+              hideBracketFilter={isFootballTournament}
+              hideRankedBracketView={isFootballTournament}
             />
-            {activeBracketView === 'all' ? (
+            {activeBracketView === 'all' && !isFootballTournament ? (
               <div className="brackets-stacked-list">
                 <section className="brackets-main-canvas-block">
                   <h3 className="brackets-ranked-canvas-title">Principal</h3>
@@ -453,8 +464,9 @@ function PoolBracketsPage() {
                     activeBracketView="main"
                     showToolbar={false}
                     readOnly={true}
+                    isFootballTournament={isFootballTournament}
                     isPoolBracketsPage
-                    useGoalTotalsForScores
+                    useGoalTotalsForScores={!isFootballTournament}
                     poolScoresSyncEpoch={poolScoresSyncEpoch}
                     onGameNavigate={handlePoolGameNavigate}
                   />
@@ -467,10 +479,11 @@ function PoolBracketsPage() {
                     activeBracketView="ranked"
                     showToolbar={false}
                     readOnly={true}
+                    isFootballTournament={isFootballTournament}
                     forcedRankedCanvasIds={rankedCanvasIds}
                     isPoolRankedView={true}
                     isPoolBracketsPage
-                    useGoalTotalsForScores
+                    useGoalTotalsForScores={!isFootballTournament}
                     poolScoresSyncEpoch={poolScoresSyncEpoch}
                     onGameNavigate={handlePoolGameNavigate}
                   />
@@ -480,13 +493,16 @@ function PoolBracketsPage() {
               <PlacementsBracket
                 tournamentId={tournamentId}
                 selectedDivision={selectedDivision}
-                activeBracketView={activeBracketView}
+                activeBracketView={isFootballTournament ? 'main' : activeBracketView}
                 showToolbar={false}
                 readOnly={true}
-                forcedRankedCanvasIds={activeBracketView === 'ranked' ? rankedCanvasIds : undefined}
-                isPoolRankedView={activeBracketView === 'ranked'}
+                isFootballTournament={isFootballTournament}
+                forcedRankedCanvasIds={
+                  !isFootballTournament && activeBracketView === 'ranked' ? rankedCanvasIds : undefined
+                }
+                isPoolRankedView={!isFootballTournament && activeBracketView === 'ranked'}
                 isPoolBracketsPage
-                useGoalTotalsForScores
+                useGoalTotalsForScores={!isFootballTournament}
                 poolScoresSyncEpoch={poolScoresSyncEpoch}
                 onGameNavigate={handlePoolGameNavigate}
               />

@@ -1,0 +1,254 @@
+.analytics-page {
+  min-height: 100vh;
+  background: #f4f6fa;
+}
+
+.analytics-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 3rem;
+}
+
+.analytics-header h1 {
+  margin: 0;
+  color: #1f2a44;
+  font-size: clamp(1.5rem, 2.4vw, 2rem);
+}
+
+.analytics-header p {
+  margin: 0.4rem 0 0;
+  color: #5f6b85;
+}
+
+.analytics-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-end;
+  margin: 1.25rem 0;
+}
+
+.analytics-filters label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+  color: #5f6b85;
+}
+
+.analytics-filters input[type='date'] {
+  padding: 0.45rem 0.6rem;
+  border: 1px solid #c8d0de;
+  border-radius: 8px;
+}
+
+.analytics-refresh-btn {
+  border: none;
+  background: #1f2a44;
+  color: #fff;
+  border-radius: 8px;
+  padding: 0.55rem 1rem;
+  cursor: pointer;
+}
+
+.analytics-error {
+  background: #fdecea;
+  color: #9b1c1c;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+.analytics-loading,
+.analytics-empty {
+  color: #5f6b85;
+}
+
+.analytics-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.analytics-kpi-card {
+  background: #fff;
+  border: 1px solid #dde3ee;
+  border-radius: 12px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.analytics-kpi-label {
+  font-size: 0.82rem;
+  color: #5f6b85;
+}
+
+.analytics-kpi-card strong {
+  font-size: 1.6rem;
+  color: #1f2a44;
+  line-height: 1.1;
+}
+
+.analytics-kpi-card strong small {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: #5f6b85;
+  margin-top: 0.2rem;
+}
+
+.analytics-panel {
+  background: #fff;
+  border: 1px solid #dde3ee;
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.analytics-panel h2 {
+  margin: 0 0 1rem;
+  font-size: 1.1rem;
+  color: #1f2a44;
+}
+
+.analytics-chart-wrap {
+  width: 100%;
+  min-height: 280px;
+}
+
+.analytics-split {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.25rem;
+}
+
+.analytics-bar-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.analytics-bar-list li {
+  display: grid;
+  grid-template-columns: 120px 1fr 40px;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.analytics-bar-label {
+  font-size: 0.88rem;
+  color: #1f2a44;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.analytics-bar-track {
+  background: #eef2f8;
+  border-radius: 999px;
+  height: 10px;
+  overflow: hidden;
+}
+
+.analytics-bar-fill {
+  display: block;
+  height: 100%;
+  background: #3d7a5f;
+  border-radius: 999px;
+}
+
+.analytics-bar-value {
+  text-align: right;
+  font-size: 0.88rem;
+  color: #5f6b85;
+}
+
+.analytics-path-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.analytics-path-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid #eef2f8;
+  font-size: 0.9rem;
+}
+
+.analytics-path-list code {
+  color: #1f2a44;
+  word-break: break-all;
+}
+
+.analytics-table-wrap {
+  overflow-x: auto;
+}
+
+.analytics-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.analytics-table th,
+.analytics-table td {
+  text-align: left;
+  padding: 0.55rem 0.5rem;
+  border-bottom: 1px solid #eef2f8;
+  vertical-align: top;
+}
+
+.analytics-table th {
+  color: #5f6b85;
+  font-weight: 600;
+}
+
+.analytics-table code {
+  word-break: break-all;
+}
+
+.analytics-referrer a {
+  color: #3d7a5f;
+  word-break: break-all;
+}
+
+.analytics-pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.analytics-pagination button {
+  border: 1px solid #c8d0de;
+  background: #fff;
+  border-radius: 8px;
+  padding: 0.4rem 0.85rem;
+  cursor: pointer;
+}
+
+.analytics-pagination button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+@media (max-width: 640px) {
+  .analytics-bar-list li {
+    grid-template-columns: 1fr;
+    gap: 0.25rem;
+  }
+
+  .analytics-bar-value {
+    text-align: left;
+  }
+}

@@ -444,6 +444,42 @@
   cursor: not-allowed;
 }
 
+.live-action-row--football {
+  margin-top: 0;
+}
+
+.live-action-btn--yellow-card {
+  background: #fefce8;
+  border-color: rgba(202, 138, 4, 0.45);
+  color: #a16207;
+}
+
+.live-action-btn--yellow-card:hover:not(:disabled) {
+  background: #fef9c3;
+  border-color: rgba(202, 138, 4, 0.62);
+}
+
+.live-action-btn--yellow-card:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.live-action-btn--red-card {
+  background: #fef2f2;
+  border-color: rgba(220, 38, 38, 0.42);
+  color: #991b1b;
+}
+
+.live-action-btn--red-card:hover:not(:disabled) {
+  background: #fee2e2;
+  border-color: rgba(220, 38, 38, 0.58);
+}
+
+.live-action-btn--red-card:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .live-action-row--secondary {
   margin-top: 0.35rem;
 }

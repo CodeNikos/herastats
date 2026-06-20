@@ -1,11 +1,46 @@
 const User = require('../models/User');
 const TournamentMember = require('../models/TournamentMember');
+const TournamentCreationToken = require('../models/TournamentCreationToken');
 const crypto = require('crypto');
 const { sendPasswordSetupRequest } = require('../services/passwordSetupService');
 const { normalizeRole } = require('../utils/userRoles');
 const { assertTournamentInviteAccess } = require('../services/tournamentAccess');
 
 const MANAGEABLE_ROLES = new Set(['admin', 'anotador']);
+
+function validateTournamentTokenInput(tokenRaw) {
+  const token = TournamentCreationToken.normalizeTokenValue(tokenRaw);
+  if (!token) {
+    return { ok: false, message: 'El token no puede estar vacío' };
+  }
+  if (token.length < 4 || token.length > 64) {
+    return { ok: false, message: 'El token debe tener entre 4 y 64 caracteres' };
+  }
+  if (!/^[A-Za-z0-9_-]+$/.test(token)) {
+    return {
+      ok: false,
+      message: 'El token solo puede contener letras, números, guiones y guiones bajos'
+    };
+  }
+  return { ok: true, token };
+}
+
+async function attachTokenDetails(users) {
+  const ids = users.map((u) => u.id);
+  const counts = await TournamentCreationToken.countAvailableByUserIds(ids);
+  const allTokens = await TournamentCreationToken.listByUserIds(ids);
+  const tokensByUser = new Map();
+  for (const tokenRow of allTokens) {
+    const list = tokensByUser.get(tokenRow.user_id) || [];
+    list.push(tokenRow);
+    tokensByUser.set(tokenRow.user_id, list);
+  }
+  return users.map((u) => ({
+    ...u,
+    tournament_tokens_available: counts.get(u.id) || 0,
+    tournament_tokens: tokensByUser.get(u.id) || []
+  }));
+}
 
 const listUsers = async (_req, res) => {
   try {
@@ -14,9 +49,10 @@ const listUsers = async (_req, res) => {
       ...u,
       role: normalizeRole(u.role) || u.role
     }));
+    const enriched = await attachTokenDetails(usersWithNormalizedRoles);
     return res.json({
       success: true,
-      data: { users: usersWithNormalizedRoles }
+      data: { users: enriched }
     });
   } catch (error) {
     console.error('Error en listUsers:', error);
@@ -37,7 +73,7 @@ const createUser = async (req, res) => {
       });
     }
 
-    const { email, role, torneo_id: torneoIdRaw } = req.body;
+    const { email, role, torneo_id: torneoIdRaw, tournament_token: tournamentTokenRaw } = req.body;
     const normalizedEmail = String(email || '').trim().toLowerCase();
     const normalizedRole = role ? String(role).trim().toLowerCase() : 'anotador';
     const torneoIdProvided =
@@ -71,6 +107,41 @@ const createUser = async (req, res) => {
         success: false,
         message: 'torneo_id debe ser un número válido'
       });
+    }
+
+    const tournamentTokenProvided =
+      tournamentTokenRaw !== undefined &&
+      tournamentTokenRaw !== null &&
+      String(tournamentTokenRaw).trim() !== '';
+    let tournamentToken = null;
+    if (tournamentTokenProvided) {
+      if (inviterRole !== 'superuser') {
+        return res.status(403).json({
+          success: false,
+          message: 'Solo el superusuario puede asignar tokens de creación de torneo'
+        });
+      }
+      if (normalizedRole !== 'admin') {
+        return res.status(400).json({
+          success: false,
+          message: 'Los tokens de torneo solo aplican a usuarios con rol administrador'
+        });
+      }
+      const tokenCheck = validateTournamentTokenInput(tournamentTokenRaw);
+      if (!tokenCheck.ok) {
+        return res.status(400).json({
+          success: false,
+          message: tokenCheck.message
+        });
+      }
+      tournamentToken = tokenCheck.token;
+      const existingToken = await TournamentCreationToken.findByToken(tournamentToken);
+      if (existingToken) {
+        return res.status(400).json({
+          success: false,
+          message: 'Ese token ya está asignado a otro usuario'
+        });
+      }
     }
 
     if (hasTorneoId) {
@@ -145,6 +216,16 @@ const createUser = async (req, res) => {
       });
     }
 
+    let assignedToken = null;
+    if (tournamentToken) {
+      assignedToken = await TournamentCreationToken.assign({
+        userId: created.id,
+        token: tournamentToken,
+        assignedBy: req.user.id,
+        source: 'manual'
+      });
+    }
+
     let mailResult = { skipped: true };
     try {
       mailResult = await sendPasswordSetupRequest(created.email, created.id);
@@ -153,14 +234,19 @@ const createUser = async (req, res) => {
     }
 
     const assignedMsg = hasTorneoId ? ' y asignado al torneo' : '';
+    const tokenMsg = assignedToken ? ' Token de torneo asignado.' : '';
     return res.status(201).json({
       success: true,
       message: mailResult?.skipped
-        ? `Usuario creado${assignedMsg}. SMTP no configurado: no se pudo enviar el correo para definir contraseña.`
-        : `Usuario creado${assignedMsg} y correo de activación enviado.`,
+        ? `Usuario creado${assignedMsg}.${tokenMsg} SMTP no configurado: no se pudo enviar el correo para definir contraseña.`
+        : `Usuario creado${assignedMsg}${tokenMsg} y correo de activación enviado.`,
       data: {
-        user: created,
+        user: {
+          ...created,
+          tournament_tokens_available: assignedToken ? 1 : 0
+        },
         torneo_id: hasTorneoId ? torneoId : null,
+        tournament_token: assignedToken,
         password_setup_email_sent: !mailResult?.skipped
       }
     });
@@ -222,6 +308,261 @@ const updateUserRole = async (req, res) => {
   }
 };
 
+const assignTournamentToken = async (req, res) => {
+  try {
+    const userId = Number(req.params.id);
+    const tokenCheck = validateTournamentTokenInput(req.body?.token);
+
+    if (!Number.isInteger(userId) || userId <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'ID de usuario inválido'
+      });
+    }
+
+    if (!tokenCheck.ok) {
+      return res.status(400).json({
+        success: false,
+        message: tokenCheck.message
+      });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Usuario no encontrado'
+      });
+    }
+
+    const userRole = normalizeRole(user.role);
+    if (userRole === 'superuser') {
+      return res.status(400).json({
+        success: false,
+        message: 'No se asignan tokens al superusuario'
+      });
+    }
+    if (userRole !== 'admin') {
+      return res.status(400).json({
+        success: false,
+        message: 'Los tokens de torneo solo aplican a administradores'
+      });
+    }
+
+    const existingToken = await TournamentCreationToken.findByToken(tokenCheck.token);
+    if (existingToken) {
+      return res.status(400).json({
+        success: false,
+        message: 'Ese token ya está asignado'
+      });
+    }
+
+    const assigned = await TournamentCreationToken.assign({
+      userId,
+      token: tokenCheck.token,
+      assignedBy: req.user.id,
+      source: 'manual'
+    });
+
+    const availableCount = (
+      await TournamentCreationToken.countAvailableByUserIds([userId])
+    ).get(userId) || 0;
+
+    return res.status(201).json({
+      success: true,
+      message: 'Token de creación de torneo asignado',
+      data: {
+        token: assigned,
+        user: {
+          id: user.id,
+          email: user.email,
+          role: userRole,
+          tournament_tokens_available: availableCount
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error en assignTournamentToken:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error al asignar token de torneo'
+    });
+  }
+};
+
+const listUserTournamentTokens = async (req, res) => {
+  try {
+    const userId = Number(req.params.id);
+    if (!Number.isInteger(userId) || userId <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'ID de usuario inválido'
+      });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Usuario no encontrado'
+      });
+    }
+
+    const tokens = await TournamentCreationToken.listByUserId(userId);
+    return res.json({
+      success: true,
+      data: { tokens }
+    });
+  } catch (error) {
+    console.error('Error en listUserTournamentTokens:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error al obtener tokens del usuario'
+    });
+  }
+};
+
+const updateTournamentToken = async (req, res) => {
+  try {
+    const userId = Number(req.params.id);
+    const tokenId = Number(req.params.tokenId);
+    const tokenCheck = validateTournamentTokenInput(req.body?.token);
+
+    if (!Number.isInteger(userId) || userId <= 0 || !Number.isInteger(tokenId) || tokenId <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'ID de usuario o token inválido'
+      });
+    }
+
+    if (!tokenCheck.ok) {
+      return res.status(400).json({
+        success: false,
+        message: tokenCheck.message
+      });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Usuario no encontrado'
+      });
+    }
+
+    const userRole = normalizeRole(user.role);
+    if (userRole !== 'admin') {
+      return res.status(400).json({
+        success: false,
+        message: 'Los tokens de torneo solo aplican a administradores'
+      });
+    }
+
+    const existing = await TournamentCreationToken.findById(tokenId);
+    if (!existing || existing.user_id !== userId) {
+      return res.status(404).json({
+        success: false,
+        message: 'Token no encontrado para este usuario'
+      });
+    }
+
+    if (existing.status !== 'available') {
+      return res.status(400).json({
+        success: false,
+        message: 'Solo se pueden editar tokens disponibles (no usados)'
+      });
+    }
+
+    const duplicate = await TournamentCreationToken.findByToken(tokenCheck.token);
+    if (duplicate && duplicate.token_id !== tokenId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Ese token ya está asignado a otro usuario'
+      });
+    }
+
+    const updated = await TournamentCreationToken.updateAvailableToken(
+      tokenId,
+      tokenCheck.token
+    );
+    if (!updated) {
+      return res.status(400).json({
+        success: false,
+        message: 'No se pudo actualizar el token'
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: 'Token actualizado',
+      data: { token: updated }
+    });
+  } catch (error) {
+    console.error('Error en updateTournamentToken:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error al actualizar token de torneo'
+    });
+  }
+};
+
+const revokeTournamentToken = async (req, res) => {
+  try {
+    const userId = Number(req.params.id);
+    const tokenId = Number(req.params.tokenId);
+
+    if (!Number.isInteger(userId) || userId <= 0 || !Number.isInteger(tokenId) || tokenId <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'ID de usuario o token inválido'
+      });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Usuario no encontrado'
+      });
+    }
+
+    const existing = await TournamentCreationToken.findById(tokenId);
+    if (!existing || existing.user_id !== userId) {
+      return res.status(404).json({
+        success: false,
+        message: 'Token no encontrado para este usuario'
+      });
+    }
+
+    if (existing.status !== 'available') {
+      return res.status(400).json({
+        success: false,
+        message: 'No se puede quitar un token que ya fue utilizado'
+      });
+    }
+
+    const revoked = await TournamentCreationToken.revokeAvailableToken(tokenId);
+    if (!revoked) {
+      return res.status(400).json({
+        success: false,
+        message: 'No se pudo quitar el token'
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: 'Token eliminado correctamente',
+      data: { token: revoked }
+    });
+  } catch (error) {
+    console.error('Error en revokeTournamentToken:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error al quitar token de torneo'
+    });
+  }
+};
+
 const deleteUser = async (req, res) => {
   try {
     const userId = Number(req.params.id);
@@ -273,5 +614,9 @@ module.exports = {
   listUsers,
   createUser,
   updateUserRole,
+  assignTournamentToken,
+  listUserTournamentTokens,
+  updateTournamentToken,
+  revokeTournamentToken,
   deleteUser
 };

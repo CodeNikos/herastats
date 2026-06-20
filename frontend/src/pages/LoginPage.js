@@ -1,19 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import LoginForm from '../components/LoginForm';
 import RegisterForm from '../components/RegisterForm';
-import { DevApiProfileMenuSection } from '../components/DevApiProfileSwitcher';
 import { useAuth } from '../hooks/useAuth';
-import { useDevApiSwitcherEligible } from '../hooks/useDevApiSwitcherEligible';
 import { showToast } from '../utils/toast';
 import '../styles/toast.css';
 import './LoginPage.css';
 
-const DEV_API_SWITCH_ROLES = ['admin', 'superuser'];
-
 const LoginPage = () => {
   const [isLoginMode, setIsLoginMode] = useState(true);
   const { error, clearError } = useAuth();
-  const devApiSwitcherVisible = useDevApiSwitcherEligible(DEV_API_SWITCH_ROLES);
   const lastLoginErrorToastRef = useRef('');
 
   useEffect(() => {
@@ -48,11 +43,6 @@ const LoginPage = () => {
       ) : (
         <RegisterForm onToggleMode={toggleMode} />
       )}
-      {devApiSwitcherVisible ? (
-        <div className="login-page-dev-api-slot">
-          <DevApiProfileMenuSection variant="compact" />
-        </div>
-      ) : null}
     </main>
   );
 };

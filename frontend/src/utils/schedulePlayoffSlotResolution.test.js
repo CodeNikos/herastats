@@ -2,8 +2,13 @@ import { parseStatsSlotDescriptor, enrichScheduleParticipantFromSlots } from './
 
 describe('schedulePlayoffSlotResolution', () => {
   test('parseStatsSlotDescriptor 1A y A1', () => {
-    expect(parseStatsSlotDescriptor('1A')).toEqual({ rank: 1, groupToken: 'A' });
-    expect(parseStatsSlotDescriptor('A1')).toEqual({ rank: 1, groupToken: 'A' });
+    expect(parseStatsSlotDescriptor('1A')).toEqual({ type: 'groupRank', rank: 1, groupToken: 'A' });
+    expect(parseStatsSlotDescriptor('A1')).toEqual({ type: 'groupRank', rank: 1, groupToken: 'A' });
+    expect(parseStatsSlotDescriptor('3ABCDF')).toEqual({
+      type: 'bestThird',
+      slot: '3ABCDF',
+      groups: ['A', 'B', 'C', 'D', 'F']
+    });
     expect(parseStatsSlotDescriptor('')).toBeNull();
   });
 

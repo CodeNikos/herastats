@@ -2,7 +2,7 @@
 
 Guía paso a paso para publicar **frontend React**, **backend Express** y **PostgreSQL** en [Seenode](https://cloud.seenode.com).
 
-Relacionado: [SECURITY_DEPLOY.md](SECURITY_DEPLOY.md) · [ENVIRONMENTS.md](ENVIRONMENTS.md)
+Relacionado: [SECURITY_DEPLOY.md](SECURITY_DEPLOY.md)
 
 ## Arquitectura
 
@@ -101,6 +101,10 @@ Si **no** usas el enlace automático, define manualmente `DB_HOST`, `DB_PORT`, `
 | `HERASTATS_SEED_DEFAULT_SUPERUSER` | `false` |
 | `MIN_PASSWORD_LENGTH` | `10` |
 | `FRONTEND_BASE_URL` | URL del frontend |
+| `SITE_URL` | Mismo dominio público que `REACT_APP_SITE_URL` (sitemap en `/sitemap.xml`) |
+| `ANALYTICS_IP_SALT` | Secreto para hash de visitantes (analytics interno) |
+| `ANALYTICS_RETENTION_DAYS` | `90` (opcional) |
+| `GEOIP_DB_PATH` | Ruta al `.mmdb` GeoLite2-Country (opcional; Cloudflare `CF-IPCountry` tiene prioridad) |
 | `CLOUDINARY_*` | Credenciales Cloudinary |
 | `SMTP_*` | Credenciales correo |
 
@@ -165,6 +169,8 @@ Definir **antes** del build (Seenode las usa en build command):
 | Variable | Valor |
 |----------|-------|
 | `REACT_APP_API_URL` | `https://TU-BACKEND.seenode.com/api` |
+| `REACT_APP_SITE_URL` | `https://tudominio.com` (dominio público del SPA, sin `/` final) |
+| `REACT_APP_GA4_MEASUREMENT_ID` | `G-XXXXXXXXXX` (opcional; GA4 tras consentimiento) |
 | `REACT_APP_GOOGLE_MAPS_API_KEY` | (opcional, con restricción por referrer) |
 
 El build falla si falta `REACT_APP_API_URL` (validado por `frontend/scripts/validate-production-env.js`).
@@ -175,6 +181,14 @@ El build falla si falta `REACT_APP_API_URL` (validado por `frontend/scripts/vali
 2. Inicia sesión con el usuario admin creado.
 3. En DevTools → Network, confirma que las peticiones van a `https://TU-BACKEND.seenode.com/api`.
 4. No debe haber errores CORS (revisa que `CORS_ORIGIN` en backend coincida exactamente con la URL del frontend).
+
+### SEO y Search Console
+
+1. Configura `REACT_APP_SITE_URL` y `SITE_URL` con tu dominio propio.
+2. En [Google Search Console](https://search.google.com/search-console), verifica el dominio (meta tag en `frontend/public/index.html` o DNS TXT).
+3. Envía el sitemap: `https://tudominio.com/sitemap.xml` (generado por el backend; si API y SPA están en hosts distintos, proxy `/sitemap.xml` al backend o usa la URL del API).
+4. Actualiza `Sitemap:` en `frontend/public/robots.txt` con tu dominio.
+5. Panel de visitas interno: `/analytics` (solo superuser). GA4 opcional con `REACT_APP_GA4_MEASUREMENT_ID`.
 
 ---
 

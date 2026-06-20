@@ -1,9 +1,8 @@
 const app = require('./app');
 const User = require('./models/User');
 const {
-  ensureDefaultSuperuserIfNeeded,
-  seedDefaultTestUsersIfNeeded
-} = require('./services/defaultTestAdminSeed');
+  ensureDefaultSuperuserIfNeeded
+} = require('./services/defaultSuperuserSeed');
 const TournamentConfig = require('./models/TournamentConfig');
 const Phase = require('./models/Phase');
 const Team = require('./models/Team');
@@ -15,6 +14,12 @@ const RankedCanvas = require('./models/RankedCanvas');
 const SpiritSurveyInvite = require('./models/SpiritSurveyInvite');
 const SpiritSurveyResponse = require('./models/SpiritSurveyResponse');
 const TournamentMember = require('./models/TournamentMember');
+const Sport = require('./models/Sport');
+const TournamentCreationToken = require('./models/TournamentCreationToken');
+const TournamentExternalEntity = require('./models/TournamentExternalEntity');
+const PageVisit = require('./models/PageVisit');
+const { startTournament2Worker } = require('./services/tournament2Sync/worker');
+const { initGeoReader } = require('./services/geoipService');
 
 const PORT = process.env.PORT || 5000;
 
@@ -23,7 +28,9 @@ const initializeTables = async () => {
     await User.createTable();
     console.log('Tabla de usuarios inicializada');
     await ensureDefaultSuperuserIfNeeded();
-    await seedDefaultTestUsersIfNeeded();
+
+    await Sport.createTable();
+    console.log('Tabla sports inicializada');
 
     await TournamentConfig.createTable();
     console.log('Tabla de torneos inicializada');
@@ -57,6 +64,33 @@ const initializeTables = async () => {
 
     await SpiritSurveyResponse.createTable();
     console.log('Tabla spirit_survey_response inicializada');
+
+    await TournamentCreationToken.createTable();
+    console.log('Tabla tournament_creation_tokens inicializada');
+
+    await TournamentExternalEntity.createTable();
+    console.log('Tablas de sincronización externa inicializadas');
+
+    await PageVisit.createTable();
+    console.log('Tabla page_visits inicializada');
+
+    await initGeoReader();
+
+    const retentionDays = Number(process.env.ANALYTICS_RETENTION_DAYS) || 90;
+    try {
+      const purged = await PageVisit.purgeOlderThan(retentionDays);
+      if (purged > 0) {
+        console.log(`Analytics: ${purged} registros antiguos eliminados`);
+      }
+    } catch (purgeErr) {
+      console.warn('Analytics: no se pudo purgar registros antiguos:', purgeErr.message);
+    }
+
+    try {
+      await startTournament2Worker();
+    } catch (workerError) {
+      console.error('Error inicializando worker torneo 2:', workerError.message || workerError);
+    }
   } catch (err) {
     console.error('Error inicializando tablas:', err);
     if (process.env.NODE_ENV === 'production') {
@@ -80,7 +114,7 @@ const server = app.listen(PORT, (err) => {
     if (err.code === 'EADDRINUSE') {
       console.error(
         `No se pudo iniciar: el puerto ${PORT} ya está en uso. ` +
-          'Cierra el otro proceso (p. ej. otra terminal con npm run start:test) o cambia PORT en tu .env.'
+          'Cierra el otro proceso o cambia PORT en tu .env.'
       );
     } else {
       console.error('Error al iniciar el servidor HTTP:', err.message || err);

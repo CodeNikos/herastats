@@ -3,18 +3,15 @@ import './Noauth_Navbar.css';
 import { AiOutlineMenu, AiOutlineClose } from "react-icons/ai";
 import { TbUserHexagon, TbLogout, TbChevronDown } from "react-icons/tb";
 import { FaUserEdit, FaUserPlus } from "react-icons/fa";
+import { MdOutlineSports } from "react-icons/md";
 import { useAuth } from '../hooks/useAuth';
 import ProfileEditModal from './ProfileEditModal';
 import AddUserModal from './AddUserModal';
 import { isAdmin, isSuperuser } from '../utils/userRoles';
 import ProfileAmbientToggle from './ProfileAmbientToggle';
-import { DevApiProfileMenuSection } from './DevApiProfileSwitcher';
-import { useDevApiSwitcherEligible } from '../hooks/useDevApiSwitcherEligible';
 import { appHref, appPath } from '../config/appRoutes';
-import { useLocation, useParams } from 'react-router-dom';
+import { useResolvedTournamentId } from '../hooks/useResolvedTournamentId';
 import { useState, useRef, useEffect } from 'react';
-
-const DEV_API_SWITCH_ROLES = ['admin', 'superuser'];
 
 const ROLE_LABELS = {
     superuser: 'Superusuario',
@@ -24,19 +21,14 @@ const ROLE_LABELS = {
 
 
 function Noauth_Navbar({ showPublicNavLinks = true, hideAmbientToggle = false }) {
-    const devApiSwitcherVisible = useDevApiSwitcherEligible(DEV_API_SWITCH_ROLES);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [profileMenuOpen, setProfileMenuOpen] = useState(false);
     const [profileEditOpen, setProfileEditOpen] = useState(false);
     const [addUserOpen, setAddUserOpen] = useState(false);
     const profileMenuRef = useRef(null);
     const { isAuthenticated, logout, user } = useAuth();
-    const { id: routeTournamentId } = useParams();
-    const location = useLocation();
-    
-    // Verificar token en localStorage como indicador adicional (fallback)
+    const currentTournamentId = useResolvedTournamentId();
     const hasToken = localStorage.getItem('token') !== null;
-    // Usar isAuthenticated del hook, pero también considerar el token como fallback mientras carga
     const isUserAuthenticated = isAuthenticated || hasToken;
     const roleLabel = user?.role ? (ROLE_LABELS[user.role] || user.role) : null;
     const displayFullName = [user?.name, user?.lname].filter(Boolean).join(' ').trim();
@@ -46,6 +38,7 @@ function Noauth_Navbar({ showPublicNavLinks = true, hideAmbientToggle = false })
         (isUserAuthenticated ? 'Cuenta' : '');
     const userIsSuperUser = isSuperuser(user);
     const canInviteUsers = userIsSuperUser || isAdmin(user);
+    const sportsManagementRef = appPath('/sports');
 
     useEffect(() => {
         if (!profileMenuOpen) return;
@@ -71,8 +64,6 @@ function Noauth_Navbar({ showPublicNavLinks = true, hideAmbientToggle = false })
         logout({ redirectTo: appPath('/home') });
     };
 
-    const queryTournamentId = new URLSearchParams(location.search).get('tournamentId');
-    const currentTournamentId = routeTournamentId || queryTournamentId;
     const statsRef = currentTournamentId
       ? appHref(`/stats?tournamentId=${currentTournamentId}`)
       : appHref('/stats');
@@ -140,12 +131,6 @@ return (
                                 )}
                             </div>
                             {!hideAmbientToggle ? <ProfileAmbientToggle dense /> : null}
-                            {devApiSwitcherVisible ? (
-                                <DevApiProfileMenuSection
-                                    variant="panel"
-                                    onBeforeNavigate={() => setIsMobileMenuOpen(false)}
-                                />
-                            ) : null}
                             <button
                                 type="button"
                                 className="noauth-mobile-link noauth-login-mobile mobile-profile-edit-btn"
@@ -165,8 +150,17 @@ return (
                                         setAddUserOpen(true);
                                     }}
                                 >
-                                    Agregar usuario
+                                    {userIsSuperUser ? 'Administración de usuarios' : 'Agregar usuario'}
                                 </button>
+                            )}
+                            {userIsSuperUser && (
+                                <a
+                                    href={sportsManagementRef}
+                                    className="noauth-mobile-link noauth-login-mobile mobile-profile-edit-btn"
+                                    onClick={() => setIsMobileMenuOpen(false)}
+                                >
+                                    Gestión de deportes
+                                </a>
                             )}
                             <a
                                 href={appPath('/')}
@@ -181,12 +175,6 @@ return (
                         </>
                     ) : (
                         <>
-                            {devApiSwitcherVisible ? (
-                                <DevApiProfileMenuSection
-                                    variant="compact"
-                                    onBeforeNavigate={() => setIsMobileMenuOpen(false)}
-                                />
-                            ) : null}
                             <a
                                 href={appPath('/login')}
                                 className="noauth-mobile-link noauth-login-mobile"
@@ -230,12 +218,6 @@ return (
                                 )}
                             </div>
                             {!hideAmbientToggle ? <ProfileAmbientToggle /> : null}
-                            {devApiSwitcherVisible ? (
-                                <DevApiProfileMenuSection
-                                    variant="panel"
-                                    onBeforeNavigate={() => setProfileMenuOpen(false)}
-                                />
-                            ) : null}
                             <button
                                 type="button"
                                 className="user-profile-logout-btn"
@@ -259,8 +241,19 @@ return (
                                     }}
                                 >
                                     <FaUserPlus size={20} />
-                                    <span>Agregar usuario</span>
+                                    <span>{userIsSuperUser ? 'Administración de usuarios' : 'Agregar usuario'}</span>
                                 </button>
+                            )}
+                            {userIsSuperUser && (
+                                <a
+                                    href={sportsManagementRef}
+                                    className="user-profile-logout-btn"
+                                    role="menuitem"
+                                    onClick={() => setProfileMenuOpen(false)}
+                                >
+                                    <MdOutlineSports size={20} />
+                                    <span>Gestión de deportes</span>
+                                </a>
                             )}
                             <button
                                 type="button"
@@ -275,12 +268,9 @@ return (
                     )}
                 </div>
             ) : (
-                <>
-                    {devApiSwitcherVisible ? <DevApiProfileMenuSection variant="inline" /> : null}
-                    <a href={appPath('/login')} className="login">
+                <a href={appPath('/login')} className="login">
                         <span className='icon'><TbUserHexagon size={25} /></span><span className='text'>Login</span>
                     </a>
-                </>
             )}
          </div>
 

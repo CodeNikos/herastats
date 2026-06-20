@@ -4,13 +4,11 @@
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
-    "start:test": "cross-env ENV_FILE=.env.test node src/server.js",
     "dev": "nodemon src/server.js",
-    "dev:test": "cross-env ENV_FILE=.env.test nodemon src/server.js",
-    "kill-port:test": "npx --yes kill-port 5001",
     "test": "cross-env NODE_ENV=test jest --runInBand --forceExit",
     "db:procedures": "node scripts/apply-procedures.js",
     "db:procedures:extract": "node scripts/extract-procedures.js",
+    "sync:tournament-2": "node scripts/sync-tournament-2.js",
     "security:check": "node ../scripts/check-secrets.js",
     "deploy:verify": "node ../scripts/verify-deploy.js"
   },
@@ -19,6 +17,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@maxmind/geoip2-node": "^6.3.4",
     "bcryptjs": "^2.4.3",
     "cloudinary": "^2.8.0",
     "cors": "^2.8.5",

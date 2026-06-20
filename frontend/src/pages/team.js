@@ -6,6 +6,15 @@ import './team.css';
 
 const DIVISION_OPTIONS = ['Open', 'Femenino', 'Mixto', 'Open Jr', 'Fem Jr', 'Mixto Jr'];
 
+function normalizeDivision(value) {
+  const trimmed = String(value || '').trim();
+  if (!trimmed) return DIVISION_OPTIONS[0];
+  const found = DIVISION_OPTIONS.find(
+    (option) => option.toLowerCase() === trimmed.toLowerCase()
+  );
+  return found || trimmed;
+}
+
 function Team() {
   const { id: routeTournamentId } = useParams();
   const location = useLocation();
@@ -17,7 +26,7 @@ function Team() {
   const [editingTeamId, setEditingTeamId] = useState(null);
   const [newTeam, setNewTeam] = useState({
     name: '',
-    division: DIVISION_OPTIONS[0],
+    division: normalizeDivision(DIVISION_OPTIONS[0]),
     representative_name: '',
     representative_email: ''
   });
@@ -32,13 +41,13 @@ function Team() {
   const [teamsError, setTeamsError] = useState('');
 
   const totalDivisions = useMemo(
-    () => new Set(teams.map((team) => team.division)).size,
+    () => new Set(teams.map((team) => normalizeDivision(team.division))).size,
     [teams]
   );
 
   const teamsByDivision = useMemo(() => {
     const grouped = teams.reduce((acc, team) => {
-      const divisionKey = team.division || 'Sin división';
+      const divisionKey = normalizeDivision(team.division);
       if (!acc[divisionKey]) {
         acc[divisionKey] = [];
       }
@@ -76,7 +85,7 @@ function Team() {
         const dbTeams = (response.data?.teams || []).map((team) => ({
           id: team.team_id,
           name: team.name,
-          division: team.division || DIVISION_OPTIONS[0],
+          division: normalizeDivision(team.division),
           image_url: team.url_imagen || null,
           representative_name: team.representative_name || '',
           representative_email: team.representative_email || ''
@@ -106,7 +115,7 @@ function Team() {
     setEditingTeamId(null);
     setNewTeam({
       name: '',
-      division: DIVISION_OPTIONS[0],
+      division: normalizeDivision(DIVISION_OPTIONS[0]),
       representative_name: '',
       representative_email: ''
     });
@@ -121,7 +130,7 @@ function Team() {
     setEditingTeamId(team.id);
     setNewTeam({
       name: team.name || '',
-      division: team.division || DIVISION_OPTIONS[0],
+      division: normalizeDivision(team.division),
       representative_name: team.representative_name || '',
       representative_email: team.representative_email || ''
     });
@@ -136,7 +145,7 @@ function Team() {
     setEditingTeamId(null);
     setNewTeam({
       name: '',
-      division: DIVISION_OPTIONS[0],
+      division: normalizeDivision(DIVISION_OPTIONS[0]),
       representative_name: '',
       representative_email: ''
     });
@@ -211,7 +220,7 @@ function Team() {
       if (editingTeamId) {
         const updateResponse = await configService.updateTeam(tournamentId, editingTeamId, {
           name: newTeam.name.trim(),
-          division: newTeam.division,
+          division: normalizeDivision(newTeam.division),
           url_imagen: imageUrl,
           representative_name: newTeam.representative_name.trim() || null,
           representative_email: newTeam.representative_email.trim() || null
@@ -225,7 +234,7 @@ function Team() {
         const mappedTeam = {
           id: updatedTeam.team_id,
           name: updatedTeam.name,
-          division: updatedTeam.division || DIVISION_OPTIONS[0],
+          division: normalizeDivision(updatedTeam.division),
           image_url: updatedTeam.url_imagen || null,
           representative_name: updatedTeam.representative_name || '',
           representative_email: updatedTeam.representative_email || ''
@@ -235,7 +244,7 @@ function Team() {
       } else {
         const createResponse = await configService.createTeam(tournamentId, {
           name: newTeam.name.trim(),
-          division: newTeam.division,
+          division: normalizeDivision(newTeam.division),
           url_imagen: imageUrl,
           representative_name: newTeam.representative_name.trim() || null,
           representative_email: newTeam.representative_email.trim() || null
@@ -249,7 +258,7 @@ function Team() {
         setTeams((prev) => [{
           id: createdTeam.team_id,
           name: createdTeam.name,
-          division: createdTeam.division || DIVISION_OPTIONS[0],
+          division: normalizeDivision(createdTeam.division),
           image_url: createdTeam.url_imagen || null,
           representative_name: createdTeam.representative_name || '',
           representative_email: createdTeam.representative_email || ''
@@ -264,7 +273,7 @@ function Team() {
 
     setNewTeam({
       name: '',
-      division: DIVISION_OPTIONS[0],
+      division: normalizeDivision(DIVISION_OPTIONS[0]),
       representative_name: '',
       representative_email: ''
     });

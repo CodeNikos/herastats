@@ -1,34 +1,52 @@
 import './config.css';
 import Navbar from '../components/navbar';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { configService } from '../services/configService';
 import { useAuth } from '../hooks/useAuth';
 import { isSuperuser } from '../utils/userRoles';
 
-/** Opciones de fase en configuración → phase_num en BD */
-const PHASE_STAGE_OPTIONS = [
+/** Opciones base de fase en configuración → phase_num en BD */
+const BASE_PHASE_STAGE_OPTIONS = [
     { value: 'Groups', label: 'Groups', phase_num: 1 },
     { value: 'Playoffs', label: 'Playoffs', phase_num: 2 },
-    { value: 'Semifinals', label: 'Semifinals', phase_num: 3 },
-    { value: 'Final', label: 'Final', phase_num: 4 }
+    { value: 'Semifinals', label: 'Semifinals', phase_num: 5 },
+    { value: 'Final', label: 'Final', phase_num: 6 }
 ];
 
-const PHASE_NUM_BY_STAGE = Object.fromEntries(
-    PHASE_STAGE_OPTIONS.map((o) => [o.value, o.phase_num])
-);
+const FOOTBALL_EXTRA_STAGE_OPTIONS = [
+    { value: 'Dieciseisavos', label: 'Dieciseisavos', phase_num: 2 },
+    { value: 'Octavos', label: 'Octavos', phase_num: 3 },
+    { value: 'Cuartos', label: 'Cuartos', phase_num: 4 }
+];
 
-const STAGE_BY_PHASE_NUM = Object.fromEntries(
-    PHASE_STAGE_OPTIONS.map((o) => [o.phase_num, o.value])
-);
+function isFootballSportName(sportName) {
+    const text = String(sportName || '').trim().toLowerCase();
+    return text.includes('futbol') || text.includes('fútbol') || text.includes('football') || text.includes('soccer');
+}
 
-function normalizePhaseStageFromApi(phase) {
-    const byNum = STAGE_BY_PHASE_NUM[Number(phase?.phase_num)];
-    if (byNum) return byNum;
+function getPhaseOptionsBySportName(sportName) {
+    if (isFootballSportName(sportName)) {
+        return [
+            BASE_PHASE_STAGE_OPTIONS[0],
+            ...FOOTBALL_EXTRA_STAGE_OPTIONS,
+            BASE_PHASE_STAGE_OPTIONS[2],
+            BASE_PHASE_STAGE_OPTIONS[3]
+        ];
+    }
+    return BASE_PHASE_STAGE_OPTIONS;
+}
+
+function normalizePhaseStageFromApi(phase, stageByPhaseNum, phaseNumByStage) {
     const text = String(phase?.stage || '').trim();
-    if (PHASE_NUM_BY_STAGE[text]) return text;
+    if (phaseNumByStage[text]) return text;
+    const byNum = stageByPhaseNum[Number(phase?.phase_num)];
+    if (byNum) return byNum;
     const lower = text.toLowerCase();
     if (lower.includes('grupo') || lower.includes('group') || lower === 'groups') return 'Groups';
+    if (lower.includes('dieciseis') || lower.includes('16avos') || lower.includes('round of 32')) return 'Dieciseisavos';
+    if (lower.includes('octav') || lower.includes('round of 16')) return 'Octavos';
+    if (lower.includes('cuart') || lower.includes('quarter')) return 'Cuartos';
     if (lower.includes('semi')) return 'Semifinals';
     if (lower === 'final' || (lower.includes('final') && !lower.includes('semi'))) return 'Final';
     if (lower.includes('playoff')) return 'Playoffs';
@@ -39,13 +57,13 @@ function emptyPhaseRow(id) {
     return { id, phas_id: null, stage: '', phase_num: null, duracion: '', limite_goal: '' };
 }
 
-function mapPhaseRowFromApi(p) {
-    const stage = normalizePhaseStageFromApi(p);
+function mapPhaseRowFromApi(p, stageByPhaseNum, phaseNumByStage) {
+    const stage = normalizePhaseStageFromApi(p, stageByPhaseNum, phaseNumByStage);
     return {
         id: p.phas_id,
         phas_id: p.phas_id,
         stage,
-        phase_num: stage ? PHASE_NUM_BY_STAGE[stage] : (p.phase_num != null ? Number(p.phase_num) : null),
+        phase_num: stage ? phaseNumByStage[stage] : (p.phase_num != null ? Number(p.phase_num) : null),
         duracion: p.duration != null ? String(p.duration) : '',
         limite_goal: p.goal_limit != null ? String(p.goal_limit) : ''
     };
@@ -71,6 +89,18 @@ function Config() {
         pais: '',
     });
     const userIsSuper = isSuperuser(user);
+    const phaseStageOptions = useMemo(
+        () => getPhaseOptionsBySportName(tournament?.sport_name),
+        [tournament?.sport_name]
+    );
+    const phaseNumByStage = useMemo(
+        () => Object.fromEntries(phaseStageOptions.map((o) => [o.value, o.phase_num])),
+        [phaseStageOptions]
+    );
+    const stageByPhaseNum = useMemo(
+        () => Object.fromEntries(phaseStageOptions.map((o) => [o.phase_num, o.value])),
+        [phaseStageOptions]
+    );
 
     useEffect(() => {
         if (!tournamentId) {
@@ -80,9 +110,14 @@ function Config() {
         const loadTournament = async () => {
             try {
                 setLoadingTournament(true);
+                let nextPhaseNumByStage = Object.fromEntries(BASE_PHASE_STAGE_OPTIONS.map((o) => [o.value, o.phase_num]));
+                let nextStageByPhaseNum = Object.fromEntries(BASE_PHASE_STAGE_OPTIONS.map((o) => [o.phase_num, o.value]));
                 const response = await configService.getTournamentById(tournamentId);
                 if (response.success && response.data?.tournament) {
                     const t = response.data.tournament;
+                    const options = getPhaseOptionsBySportName(t?.sport_name);
+                    nextPhaseNumByStage = Object.fromEntries(options.map((o) => [o.value, o.phase_num]));
+                    nextStageByPhaseNum = Object.fromEntries(options.map((o) => [o.phase_num, o.value]));
                     setTournament(t);
                     setFormData({
                         torn_name: t.name || '',
@@ -94,7 +129,7 @@ function Config() {
                 try {
                     const phasesRes = await configService.getPhases(tournamentId);
                     if (phasesRes.success && Array.isArray(phasesRes.data?.phases) && phasesRes.data.phases.length > 0) {
-                        setRows(phasesRes.data.phases.map(mapPhaseRowFromApi));
+                        setRows(phasesRes.data.phases.map((p) => mapPhaseRowFromApi(p, nextStageByPhaseNum, nextPhaseNumByStage)));
                     }
                 } catch (phasesErr) {
                     console.warn('No se pudieron cargar las fases:', phasesErr);
@@ -189,7 +224,7 @@ function Config() {
         setRows(rows.map((row) => {
             if (row.id !== id) return row;
             if (field === 'stage') {
-                const phase_num = PHASE_NUM_BY_STAGE[value] ?? null;
+                const phase_num = phaseNumByStage[value] ?? null;
                 return { ...row, stage: value, phase_num };
             }
             return { ...row, [field]: value };
@@ -207,16 +242,17 @@ function Config() {
         setSavingPhases(true);
         setPhasesMessage({ type: '', text: '' });
         try {
-            const invalidStage = rows.some((r) => !r.stage || !PHASE_NUM_BY_STAGE[r.stage]);
+            const invalidStage = rows.some((r) => !r.stage || !phaseNumByStage[r.stage]);
             if (invalidStage) {
-                setPhasesMessage({ type: 'error', text: 'Selecciona un tipo de fase válido (Groups, Playoffs, Semifinals o Final) en cada fila.' });
+                const labels = phaseStageOptions.map((o) => o.label).join(', ');
+                setPhasesMessage({ type: 'error', text: `Selecciona un tipo de fase válido (${labels}) en cada fila.` });
                 setSavingPhases(false);
                 return;
             }
             const phasesPayload = rows.map((r) => ({
                 ...(r.phas_id != null && r.phas_id !== '' ? { phas_id: r.phas_id } : {}),
                 stage: r.stage,
-                phase_num: PHASE_NUM_BY_STAGE[r.stage],
+                phase_num: phaseNumByStage[r.stage],
                 duracion: r.duracion,
                 limite_goal: r.limite_goal
             }));
@@ -225,7 +261,7 @@ function Config() {
                 setPhasesMessage({ type: 'success', text: 'Fases guardadas correctamente.' });
                 if (Array.isArray(result.data?.phases)) {
                     if (result.data.phases.length > 0) {
-                        setRows(result.data.phases.map(mapPhaseRowFromApi));
+                        setRows(result.data.phases.map((p) => mapPhaseRowFromApi(p, stageByPhaseNum, phaseNumByStage)));
                     } else {
                         setRows([]);
                     }
@@ -324,7 +360,7 @@ function Config() {
     return (
         <div className='config_container'>
         <div className='topbar'>
-        <Navbar />
+        <Navbar tournamentId={tournamentId} />
         </div>
 
 <div className='config_body_container'>
@@ -475,7 +511,7 @@ function Config() {
                                                     aria-label='Tipo de fase'
                                                 >
                                                     <option value=''>Seleccionar fase…</option>
-                                                    {PHASE_STAGE_OPTIONS.map((opt) => (
+                                                    {phaseStageOptions.map((opt) => (
                                                         <option key={opt.value} value={opt.value}>
                                                             {opt.label}
                                                         </option>

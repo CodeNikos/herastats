@@ -2,10 +2,20 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import Navbar from '../components/navbar';
 import { configService } from '../services/configService';
-import { isGameFinishedState } from '../utils/gamePhaseClock';
+import { isGameFinishedState } from '../utils/gameEstado';
+import { FOOTBALL_SPORT_ID } from '../utils/footballEventTypes';
 import './team_players.css';
 
 const TEAM_FALLBACK_IMAGE = '/Hera_logo.png';
+function isFootballSportName(value) {
+  const text = String(value || '').trim().toLowerCase();
+  return (
+    text.includes('futbol') ||
+    text.includes('fútbol') ||
+    text.includes('football') ||
+    text.includes('soccer')
+  );
+}
 
 const parseScoreValue = (value) => {
   if (value === null || value === undefined || value === '') return null;
@@ -62,16 +72,24 @@ const formatTeamGameDateTime = (game) => {
   });
 };
 
-function filterTeamGames(games, teamId, teamDivision) {
+function filterTeamGames(games, teamId, teamDivision, { ignoreDivision = false } = {}) {
   const tid = Number(teamId);
-  const div = (teamDivision || '').trim();
+  const div = ignoreDivision ? '' : (teamDivision || '').trim();
   return (games || []).filter((g) => {
     const local = g.local != null ? Number(g.local) : null;
     const visitor = g.visitor != null ? Number(g.visitor) : null;
     if (local !== tid && visitor !== tid) return false;
-    if (g.division && div && String(g.division).trim() !== div) return false;
+    if (!ignoreDivision && g.division && div && String(g.division).trim() !== div) return false;
     return true;
   });
+}
+
+/** Partido con resultado utilizable para KPI de fútbol (finalizado o con marcador completo). */
+function isFootballKpiGame(game) {
+  if (isGameFinishedState(gameRowEstado(game))) return true;
+  const ls = parseScoreValue(game?.local_score);
+  const vs = parseScoreValue(game?.visitor_score);
+  return ls !== null && vs !== null;
 }
 
 function gameRowEstado(game) {
@@ -193,11 +211,17 @@ const sortIconSvg = (
   </svg>
 );
 
-function aggregateTeamGames(games, teamId, teamDivision) {
-  const filtered = filterTeamGames(games, teamId, teamDivision);
+function aggregateTeamGames(games, teamId, teamDivision, { finishedOnly = false, footballKpi = false } = {}) {
+  const ignoreDivision = footballKpi;
+  const filtered = filterTeamGames(games, teamId, teamDivision, { ignoreDivision }).filter((g) => {
+    if (footballKpi) return isFootballKpiGame(g);
+    if (!finishedOnly) return true;
+    return isGameFinishedState(gameRowEstado(g));
+  });
   const tid = Number(teamId);
 
   let wins = 0;
+  let draws = 0;
   let losses = 0;
   let goalsFor = 0;
   let goalsAgainst = 0;
@@ -214,6 +238,7 @@ function aggregateTeamGames(games, teamId, teamDivision) {
       goalsFor += teamScore;
       goalsAgainst += oppScore;
       if (teamScore > oppScore) wins += 1;
+      else if (teamScore === oppScore) draws += 1;
       else if (teamScore < oppScore) losses += 1;
     }
   });
@@ -221,6 +246,7 @@ function aggregateTeamGames(games, teamId, teamDivision) {
   return {
     gamesPlayed: filtered.length,
     wins,
+    draws,
     losses,
     goalsFor,
     goalsAgainst,
@@ -290,11 +316,19 @@ function TeamPlayersPage() {
         }
         setTeam(found);
 
+        const tourData = tRes.data?.tournament || null;
+        const loadFootballStats =
+          Number(tourData?.sport_id) === FOOTBALL_SPORT_ID || isFootballSportName(tourData?.sport_name);
+
         let statsMap = {};
         try {
           const divisionTrim =
             found.division != null && String(found.division).trim() !== '' ? String(found.division).trim() : '';
-          const peOpts = divisionTrim !== '' ? { division: divisionTrim, scope: 'all' } : { scope: 'all' };
+          const peOpts = loadFootballStats
+            ? { scope: 'all' }
+            : divisionTrim !== ''
+              ? { division: divisionTrim, scope: 'all' }
+              : { scope: 'all' };
           const peRes = await configService.getTournamentPlayerEventStats(tournamentId, peOpts);
           if (peRes?.success && Array.isArray(peRes.data?.players)) {
             peRes.data.players.forEach((row) => {
@@ -327,14 +361,45 @@ function TeamPlayersPage() {
     load();
   }, [tournamentId, teamId]);
 
-  const teamStats = useMemo(
-    () => aggregateTeamGames(games, teamId, team?.division),
-    [games, teamId, team]
+  const isFootballTournament = useMemo(
+    () =>
+      Number(tournament?.sport_id) === FOOTBALL_SPORT_ID || isFootballSportName(tournament?.sport_name),
+    [tournament?.sport_id, tournament?.sport_name]
   );
+
+  const teamStats = useMemo(
+    () =>
+      aggregateTeamGames(games, teamId, team?.division, {
+        footballKpi: isFootballTournament
+      }),
+    [games, teamId, team, isFootballTournament]
+  );
+
+  const teamCardTotals = useMemo(() => {
+    let yellowCards = 0;
+    let redCards = 0;
+    Object.values(playerEventStatsByPlayerId).forEach((row) => {
+      yellowCards += Number(row.yellowcards) || 0;
+      redCards += Number(row.redcards) || 0;
+    });
+    return { yellowCards, redCards };
+  }, [playerEventStatsByPlayerId]);
+
+  useEffect(() => {
+    if (isFootballTournament) {
+      setSortKey((prev) => (prev === 'total' || prev === 'assists' || prev === 'callahans' ? 'goals' : prev));
+    }
+  }, [isFootballTournament]);
+
+  useEffect(() => {
+    if (isFootballTournament && activeTab === 'spirit') {
+      setActiveTab('players');
+    }
+  }, [isFootballTournament, activeTab]);
 
   const teamGamesList = useMemo(() => {
     const tid = Number(teamId);
-    return filterTeamGames(games, teamId, team?.division)
+    return filterTeamGames(games, teamId, team?.division, { ignoreDivision: isFootballTournament })
       .map((g) => {
         const isLocal = Number(g.local) === tid;
         const teamScore = parseScoreValue(isLocal ? g.local_score : g.visitor_score);
@@ -362,7 +427,7 @@ function TeamPlayersPage() {
         };
       })
       .sort((a, b) => a.sortMs - b.sortMs);
-  }, [games, teamId, team?.division]);
+  }, [games, teamId, team?.division, isFootballTournament]);
 
   /** Promedio de espíritu recibido (~0–4) por partido con encuesta. */
   const teamSpiritAvgDisplay = useMemo(() => {
@@ -386,6 +451,12 @@ function TeamPlayersPage() {
     let cancelled = false;
 
     async function loadSpiritScores() {
+      if (isFootballTournament) {
+        setSpiritSheets({ received: [], given: [] });
+        setSpiritLoading(false);
+        setSpiritError('');
+        return;
+      }
       if (!tournamentId || !teamId) {
         setSpiritSheets({ received: [], given: [] });
         setSpiritLoading(false);
@@ -394,7 +465,7 @@ function TeamPlayersPage() {
       }
 
       // Partidos donde juega el equipo sin filtro de división (evita ocultar partidos con espíritu si game.division ≠ team.division).
-      const participationGames = filterTeamGames(games, teamId, '');
+      const participationGames = filterTeamGames(games, teamId, '', { ignoreDivision: true });
       let gamesForSpirit = participationGames.filter((g) => isGameFinishedState(gameRowEstado(g)));
       if (gamesForSpirit.length === 0 && participationGames.length > 0) {
         gamesForSpirit = participationGames;
@@ -460,9 +531,11 @@ function TeamPlayersPage() {
     return () => {
       cancelled = true;
     };
-  }, [tournamentId, teamId, team?.division, games]);
+  }, [tournamentId, teamId, team?.division, games, isFootballTournament]);
 
-  const countryLabel = tournament?.country || tournament?.location || '—';
+  const countryLabel = isFootballTournament
+    ? (team?.name || '—')
+    : (tournament?.country || tournament?.location || '—');
 
   const tableRows = useMemo(() => {
     return players.map((p) => {
@@ -471,7 +544,9 @@ function TeamPlayersPage() {
       const assists = Number(stat.assists) || 0;
       const gamesPlayedEv = Number(stat.games) || 0;
       const callahans = Number(stat.callahans) || 0;
-      const total = goals + assists;
+      const yellowCards = Number(stat.yellowcards) || 0;
+      const redCards = Number(stat.redcards) || 0;
+      const total = isFootballTournament ? goals : goals + assists;
       const gamesDenom = gamesPlayedEv > 0 ? gamesPlayedEv : 1;
       return {
         ...p,
@@ -479,13 +554,18 @@ function TeamPlayersPage() {
         _assists: assists,
         _goals: goals,
         _callahans: callahans,
+        _yellowCards: yellowCards,
+        _redCards: redCards,
+        _position: String(p.position || '').trim() || '—',
         _games: gamesPlayedEv,
         _totGm: total / gamesDenom,
         _astGm: assists / gamesDenom,
-        _glsGm: goals / gamesDenom
+        _glsGm: goals / gamesDenom,
+        _ycGm: yellowCards / gamesDenom,
+        _rcGm: redCards / gamesDenom
       };
     });
-  }, [players, playerEventStatsByPlayerId]);
+  }, [players, playerEventStatsByPlayerId, isFootballTournament]);
 
   const sortedRows = useMemo(() => {
     const dir = sortAsc ? 1 : -1;
@@ -514,6 +594,18 @@ function TeamPlayersPage() {
           return (a._glsGm - b._glsGm) * dir;
         case 'callahans':
           return (a._callahans - b._callahans) * dir;
+        case 'yellow_cards':
+          return (a._yellowCards - b._yellowCards) * dir;
+        case 'red_cards':
+          return (a._redCards - b._redCards) * dir;
+        case 'yc_gm':
+          return (a._ycGm - b._ycGm) * dir;
+        case 'rc_gm':
+          return (a._rcGm - b._rcGm) * dir;
+        case 'position':
+          return String(a._position || '')
+            .toLowerCase()
+            .localeCompare(String(b._position || '').toLowerCase(), 'es') * dir;
         default:
           return 0;
       }
@@ -561,20 +653,33 @@ function TeamPlayersPage() {
           <tr>
             <th className="tp_th tp_th--left">{headerBtn('player_number', '#')}</th>
             <th className="tp_th tp_th--left">{headerBtn('player_name', 'Nombre')}</th>
-            <th className="tp_th tp_th--total">{headerBtn('total', 'Total')}</th>
-            <th className="tp_th">{headerBtn('assists', 'Asistencias')}</th>
-            <th className="tp_th">{headerBtn('goals', 'Goles')}</th>
-            <th className="tp_th">{headerBtn('games', 'Partidos')}</th>
-            <th className="tp_th">{headerBtn('tot_gm', 'Tot/P')}</th>
-            <th className="tp_th">{headerBtn('ast_gm', 'Ast/P')}</th>
-            <th className="tp_th">{headerBtn('gls_gm', 'Gol/P')}</th>
-            <th className="tp_th">{headerBtn('callahans', 'Callahans')}</th>
+            {isFootballTournament ? (
+              <>
+                <th className="tp_th">{headerBtn('goals', 'Goles')}</th>
+                <th className="tp_th">{headerBtn('games', 'Partidos')}</th>
+                <th className="tp_th">{headerBtn('gls_gm', 'Gol/P')}</th>
+                <th className="tp_th">{headerBtn('yellow_cards', 'YC')}</th>
+                <th className="tp_th">{headerBtn('red_cards', 'RC')}</th>
+                <th className="tp_th">{headerBtn('position', 'Posición')}</th>
+              </>
+            ) : (
+              <>
+                <th className="tp_th tp_th--total">{headerBtn('total', 'Total')}</th>
+                <th className="tp_th">{headerBtn('assists', 'Asistencias')}</th>
+                <th className="tp_th">{headerBtn('goals', 'Goles')}</th>
+                <th className="tp_th">{headerBtn('games', 'Partidos')}</th>
+                <th className="tp_th">{headerBtn('tot_gm', 'Tot/P')}</th>
+                <th className="tp_th">{headerBtn('ast_gm', 'Ast/P')}</th>
+                <th className="tp_th">{headerBtn('gls_gm', 'Gol/P')}</th>
+                <th className="tp_th">{headerBtn('callahans', 'Callahans')}</th>
+              </>
+            )}
           </tr>
         </thead>
         <tbody>
           {sortedRows.length === 0 ? (
             <tr>
-              <td colSpan={10} className="tp_empty">
+              <td colSpan={isFootballTournament ? 8 : 10} className="tp_empty">
                 No hay jugadores registrados para este equipo.
               </td>
             </tr>
@@ -583,14 +688,27 @@ function TeamPlayersPage() {
               <tr key={row.player_id ?? `${row.team_id}-${row.player_number}-${idx}`} className="tp_tr">
                 <td className="tp_td tp_td--left">{row.player_number ?? '—'}</td>
                 <td className="tp_td tp_td--left">{row.player_name ?? '—'}</td>
-                <td className="tp_td tp_td--total">{row._total}</td>
-                <td className="tp_td">{row._assists}</td>
-                <td className="tp_td">{row._goals}</td>
-                <td className="tp_td">{row._games}</td>
-                <td className="tp_td">{fmtNum(row._totGm)}</td>
-                <td className="tp_td">{fmtNum(row._astGm)}</td>
-                <td className="tp_td">{fmtNum(row._glsGm)}</td>
-                <td className="tp_td">{row._callahans}</td>
+                {isFootballTournament ? (
+                  <>
+                    <td className="tp_td">{row._goals}</td>
+                    <td className="tp_td">{row._games}</td>
+                    <td className="tp_td">{fmtNum(row._glsGm)}</td>
+                    <td className="tp_td">{row._yellowCards}</td>
+                    <td className="tp_td">{row._redCards}</td>
+                    <td className="tp_td">{row._position}</td>
+                  </>
+                ) : (
+                  <>
+                    <td className="tp_td tp_td--total">{row._total}</td>
+                    <td className="tp_td">{row._assists}</td>
+                    <td className="tp_td">{row._goals}</td>
+                    <td className="tp_td">{row._games}</td>
+                    <td className="tp_td">{fmtNum(row._totGm)}</td>
+                    <td className="tp_td">{fmtNum(row._astGm)}</td>
+                    <td className="tp_td">{fmtNum(row._glsGm)}</td>
+                    <td className="tp_td">{row._callahans}</td>
+                  </>
+                )}
               </tr>
             ))
           )}
@@ -887,10 +1005,12 @@ function TeamPlayersPage() {
             </div>
 
             <div className="tp_stat_grid">
-              <div className="tp_stat_card">
-                <span className="tp_stat_value">{team?.division || '—'}</span>
-                <span className="tp_stat_label">División</span>
-              </div>
+              {!isFootballTournament ? (
+                <div className="tp_stat_card">
+                  <span className="tp_stat_value">{team?.division || '—'}</span>
+                  <span className="tp_stat_label">División</span>
+                </div>
+              ) : null}
               <div className="tp_stat_card">
                 <span className="tp_stat_value">{countryLabel}</span>
                 <span className="tp_stat_label">País</span>
@@ -901,16 +1021,36 @@ function TeamPlayersPage() {
               </div>
               <div className="tp_stat_card">
                 <span className="tp_stat_value">
-                  {teamStats.wins} - {teamStats.losses}
+                  {teamStats.wins} - {teamStats.draws} - {teamStats.losses}
                 </span>
-                <span className="tp_stat_label">Ganados - Perdidos</span>
+                <span className="tp_stat_label">Ganados - Empatados - Perdidos</span>
               </div>
-              <div className="tp_stat_card">
-                <span className="tp_stat_value">
-                  {spiritLoading ? '…' : teamSpiritAvgDisplay != null ? fmtNum(teamSpiritAvgDisplay) : '—'}
-                </span>
-                <span className="tp_stat_label">Espiritu (media)</span>
-              </div>
+              {isFootballTournament ? (
+                <>
+                  <div className="tp_stat_card">
+                    <span className="tp_stat_value">
+                      {teamStats.goalsFor} - {teamStats.goalsAgainst}
+                    </span>
+                    <span className="tp_stat_label">Goles a favor - en contra</span>
+                  </div>
+                  <div className="tp_stat_card tp_stat_card--yc">
+                    <span className="tp_stat_value">{teamCardTotals.yellowCards}</span>
+                    <span className="tp_stat_label">Tarjetas amarillas (YC)</span>
+                  </div>
+                  <div className="tp_stat_card tp_stat_card--rc">
+                    <span className="tp_stat_value">{teamCardTotals.redCards}</span>
+                    <span className="tp_stat_label">Tarjetas rojas (RC)</span>
+                  </div>
+                </>
+              ) : null}
+              {!isFootballTournament ? (
+                <div className="tp_stat_card">
+                  <span className="tp_stat_value">
+                    {spiritLoading ? '…' : teamSpiritAvgDisplay != null ? fmtNum(teamSpiritAvgDisplay) : '—'}
+                  </span>
+                  <span className="tp_stat_label">Espiritu (media)</span>
+                </div>
+              ) : null}
               <div className="tp_stat_card">
                 <span className="tp_stat_value">{players.length}</span>
                 <span className="tp_stat_label">Jugadores activos</span>
@@ -933,13 +1073,15 @@ function TeamPlayersPage() {
             >
               Jugadores
             </button>
-            <button
-              type="button"
-              className={`tp_tab${activeTab === 'spirit' ? ' tp_tab--active' : ''}`}
-              onClick={() => setActiveTab('spirit')}
-            >
-              Espiritu
-            </button>
+            {!isFootballTournament ? (
+              <button
+                type="button"
+                className={`tp_tab${activeTab === 'spirit' ? ' tp_tab--active' : ''}`}
+                onClick={() => setActiveTab('spirit')}
+              >
+                Espiritu
+              </button>
+            ) : null}
             <button
               type="button"
               className={`tp_tab${activeTab === 'all' ? ' tp_tab--active' : ''}`}
@@ -952,7 +1094,7 @@ function TeamPlayersPage() {
           <div className="tp_panel">
             {activeTab === 'players' && renderPlayersTable()}
             {activeTab === 'games' && renderGamesTable()}
-            {activeTab === 'spirit' && renderSpiritSection()}
+            {!isFootballTournament && activeTab === 'spirit' && renderSpiritSection()}
             {activeTab === 'all' && (
               <div className="tp_panel_sections">
                 <section aria-labelledby="tp_sec_games_all">
@@ -967,12 +1109,14 @@ function TeamPlayersPage() {
                   </h2>
                   {renderPlayersTable()}
                 </section>
-                <section aria-labelledby="tp_sec_spirit_all">
-                  <h2 id="tp_sec_spirit_all" className="tp_section_title">
-                    Espiritu
-                  </h2>
-                  {renderSpiritSection()}
-                </section>
+                {!isFootballTournament ? (
+                  <section aria-labelledby="tp_sec_spirit_all">
+                    <h2 id="tp_sec_spirit_all" className="tp_section_title">
+                      Espiritu
+                    </h2>
+                    {renderSpiritSection()}
+                  </section>
+                ) : null}
               </div>
             )}
           </div>

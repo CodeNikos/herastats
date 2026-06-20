@@ -26,7 +26,7 @@ export function goalTotalsFromTimelineEvents(events, localTeamId, visitorTeamId)
   }
   for (const ev of events) {
     const ty = String(ev?.event_type ?? '').trim().toUpperCase().replace(/\s+/g, ' ');
-    if (ty !== 'GOAL') continue;
+    if (!['GOAL', 'PENALTY', 'OWN_GOAL'].includes(ty)) continue;
     const gRaw = ev.goals !== undefined && ev.goals !== null ? Number(ev.goals) : 1;
     const gInc = Number.isFinite(gRaw) && gRaw > 0 ? gRaw : 1;
     const tidRaw =

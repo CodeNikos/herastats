@@ -55,6 +55,11 @@ const normalizeLookupText = (value) =>
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '');
 
+const isEmptyTeamValue = (value) => {
+  const text = String(value ?? '').trim().toLowerCase();
+  return !text || text === 'null' || text === 'n/a' || text === 'na' || text === '-';
+};
+
 const getRowValue = (row, aliases) => {
   const entries = Object.entries(row || {});
   for (const [key, value] of entries) {
@@ -89,6 +94,9 @@ const normalizeTimeInput = (value) => {
   const [, hour, minute] = match;
   return `${hour.padStart(2, '0')}:${minute}`;
 };
+
+const FOOTBALL_SPORT_ID = 2;
+const GAMES_PER_PAGE = 10;
 
 const mapDbGameToUi = (game) => ({
   id: Number(game.game_id),
@@ -140,8 +148,13 @@ function CalendarConfigPage() {
   const [bulkMessage, setBulkMessage] = useState('');
   const [bulkError, setBulkError] = useState('');
   const [importingGames, setImportingGames] = useState(false);
+  const [knockoutBulkMessage, setKnockoutBulkMessage] = useState('');
+  const [knockoutBulkError, setKnockoutBulkError] = useState('');
+  const [importingKnockoutGames, setImportingKnockoutGames] = useState(false);
+  const [gamesPage, setGamesPage] = useState(1);
   const formCardRef = useRef(null);
   const fileInputRef = useRef(null);
+  const knockoutFileInputRef = useRef(null);
 
   useEffect(() => {
     const loadTournament = async () => {
@@ -276,6 +289,10 @@ function CalendarConfigPage() {
     };
 
     loadGames();
+  }, [tournamentId]);
+
+  useEffect(() => {
+    setGamesPage(1);
   }, [tournamentId]);
 
   const handleChange = (field) => (event) => {
@@ -449,6 +466,31 @@ function CalendarConfigPage() {
     });
     setError('');
   };
+
+  const isFootballTournament = useMemo(
+    () => Number(tournament?.sport_id) === FOOTBALL_SPORT_ID,
+    [tournament?.sport_id]
+  );
+
+  const knockoutPhases = useMemo(() => phases.filter((phase) => !phase.isGroup), [phases]);
+
+  const knockoutGames = useMemo(() => {
+    const phaseMap = new Map(phases.map((phase) => [phase.id, phase]));
+    return games
+      .filter((game) => {
+        const phase = phaseMap.get(game.phaseId);
+        return phase && !phase.isGroup;
+      })
+      .sort((a, b) => {
+        const phaseA = phaseMap.get(a.phaseId);
+        const phaseB = phaseMap.get(b.phaseId);
+        const phaseCmp = (phaseA?.phase_num ?? 999) - (phaseB?.phase_num ?? 999);
+        if (phaseCmp !== 0) return phaseCmp;
+        return (a.gameNum ?? 0) - (b.gameNum ?? 0);
+      });
+  }, [games, phases]);
+
+  const gamesById = useMemo(() => new Map(games.map((game) => [String(game.id), game])), [games]);
 
   const divisionOptions = useMemo(
     () => [...new Set(teams.map((team) => team.division))].sort((a, b) => a.localeCompare(b, 'es')),
@@ -674,31 +716,334 @@ function CalendarConfigPage() {
     }
   };
 
-  const groupedGames = useMemo(() => {
-    return games.reduce((acc, game) => {
+  const handleDownloadKnockoutTemplate = () => {
+    if (!tournamentId) {
+      setKnockoutBulkError('No se encontro el ID del torneo para generar la plantilla.');
+      setKnockoutBulkMessage('');
+      return;
+    }
+    if (knockoutPhases.length === 0) {
+      setKnockoutBulkError('No hay fases eliminatorias configuradas en este torneo.');
+      setKnockoutBulkMessage('');
+      return;
+    }
+
+    const workbook = XLSX.utils.book_new();
+    const templateRows =
+      knockoutGames.length > 0
+        ? knockoutGames.map((game) => ({
+            JuegoId: String(game.id),
+            NumeroJuego: game.gameNum != null ? String(game.gameNum) : '',
+            TorneoId: String(tournamentId),
+            Fase: game.phaseName,
+            Fecha: game.date || '',
+            Hora: game.time || '',
+            Lugar: game.place || '',
+            Division: game.division || '',
+            'Equipo local': game.homeTeamName || game.homeTeamId || '',
+            'Equipo visitante': game.awayTeamName || game.awayTeamId || ''
+          }))
+        : [
+            {
+              JuegoId: '',
+              NumeroJuego: '',
+              TorneoId: String(tournamentId),
+              Fase: knockoutPhases[0]?.name || '',
+              Fecha: '2026-07-10',
+              Hora: '18:00',
+              Lugar: 'Estadio',
+              Division: '',
+              'Equipo local': '',
+              'Equipo visitante': ''
+            }
+          ];
+
+    const templateSheet = XLSX.utils.json_to_sheet(templateRows);
+    const instructionsSheet = XLSX.utils.aoa_to_sheet([
+      ['Instrucciones eliminatorias (futbol)'],
+      ['1) No cambies los nombres de las columnas de la hoja Plantilla_eliminatorias.'],
+      ['2) Si existe JuegoId, la fila actualiza ese partido. Sin JuegoId se crea uno nuevo.'],
+      ['3) Solo se permiten fases distintas a grupos (octavos, cuartos, semifinal, final, etc.).'],
+      ['4) Fase y equipos aceptan ID o nombre exacto.'],
+      ['5) Usa formato de fecha YYYY-MM-DD y hora HH:mm.'],
+      ['6) Completa Fecha, Hora y Lugar en cada fila.'],
+      ['7) Equipo local y visitante pueden ir vacios o con el texto "null" si aun no estan definidos (ambos juntos).']
+    ]);
+    const phaseSheet = XLSX.utils.json_to_sheet(
+      knockoutPhases.map((phase) => ({
+        FaseId: phase.id,
+        Fase: phase.name
+      }))
+    );
+    const teamSheet = XLSX.utils.json_to_sheet(
+      teams.map((team) => ({
+        EquipoId: team.id,
+        Equipo: team.name,
+        Division: team.division
+      }))
+    );
+
+    XLSX.utils.book_append_sheet(workbook, templateSheet, 'Plantilla_eliminatorias');
+    XLSX.utils.book_append_sheet(workbook, instructionsSheet, 'Instrucciones');
+    XLSX.utils.book_append_sheet(workbook, phaseSheet, 'Fases_eliminatorias');
+    XLSX.utils.book_append_sheet(workbook, teamSheet, 'Equipos');
+
+    XLSX.writeFile(workbook, `plantilla_eliminatorias_torneo_${tournamentId}.xlsx`);
+    setKnockoutBulkError('');
+    setKnockoutBulkMessage(
+      knockoutGames.length > 0
+        ? `Plantilla descargada con ${knockoutGames.length} partido(s) eliminatorio(s). Completa fecha, hora y lugar y luego importa.`
+        : 'Plantilla descargada. Completa la hoja "Plantilla_eliminatorias" y luego importa el archivo.'
+    );
+  };
+
+  const handleOpenKnockoutImportDialog = () => {
+    if (knockoutFileInputRef.current) knockoutFileInputRef.current.click();
+  };
+
+  const resolveTeamFromRow = (rawValue, teamsById, teamsByName, divisionValue, { allowAnyDivision = false } = {}) => {
+    if (isEmptyTeamValue(rawValue)) return null;
+    const text = String(rawValue).trim();
+    const team = teamsById.get(text) || teamsByName.get(normalizeLookupText(text));
+    if (!team) return null;
+    if (!allowAnyDivision && divisionValue && team.division !== divisionValue) return null;
+    return team;
+  };
+
+  const handleImportKnockoutFromExcel = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    if (!tournamentId) {
+      setKnockoutBulkError('No se encontro el ID del torneo para importar juegos.');
+      setKnockoutBulkMessage('');
+      return;
+    }
+    if (savingGame || importingKnockoutGames || importingGames) return;
+
+    try {
+      setImportingKnockoutGames(true);
+      setKnockoutBulkError('');
+      setKnockoutBulkMessage('');
+      setError('');
+
+      const fileBuffer = await file.arrayBuffer();
+      const workbook = XLSX.read(fileBuffer, { type: 'array' });
+      const sheetName =
+        workbook.SheetNames.find((name) => normalizeLookupText(name) === 'plantillaeliminatorias') ||
+        workbook.SheetNames.find((name) => normalizeLookupText(name) === 'plantilla') ||
+        workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      if (!worksheet) {
+        throw new Error('No se encontro una hoja valida en el archivo.');
+      }
+
+      const rows = XLSX.utils.sheet_to_json(worksheet, { defval: '', raw: false });
+      if (!Array.isArray(rows) || rows.length === 0) {
+        throw new Error('La hoja esta vacia. Agrega al menos una fila con datos.');
+      }
+
+      const phasesById = new Map(phases.map((phase) => [String(phase.id), phase]));
+      const phasesByName = new Map(phases.map((phase) => [normalizeLookupText(phase.name), phase]));
+      const teamsById = new Map(teams.map((team) => [String(team.id), team]));
+      const teamsByName = new Map(teams.map((team) => [normalizeLookupText(team.name), team]));
+      const targetTournamentId = String(tournamentId);
+
+      const savedGames = [];
+      const rowErrors = [];
+      let createdCount = 0;
+      let updatedCount = 0;
+
+      for (let index = 0; index < rows.length; index += 1) {
+        const rowNumber = index + 2;
+        const row = rows[index];
+
+        const rowTournamentIdRaw = getRowValue(row, ['torneoid', 'idtorneo']);
+        const rowTournamentId = String(rowTournamentIdRaw || '').trim();
+        if (rowTournamentId && rowTournamentId !== targetTournamentId) {
+          rowErrors.push(`Fila ${rowNumber}: TorneoId ${rowTournamentId} no coincide con el torneo actual (${targetTournamentId}).`);
+          continue;
+        }
+
+        const gameIdRaw = String(getRowValue(row, ['juegoid', 'idjuego', 'gameid']) || '').trim();
+        const existingGame = gameIdRaw ? gamesById.get(gameIdRaw) : null;
+
+        const dateValue = normalizeDateInput(getRowValue(row, ['fecha']));
+        const timeValue = normalizeTimeInput(getRowValue(row, ['hora']));
+        const placeValue = String(getRowValue(row, ['lugar']) || '').trim();
+        const phaseRaw = String(getRowValue(row, ['fase']) || '').trim();
+        const divisionValue = String(getRowValue(row, ['division']) || '').trim();
+        const homeRaw = getRowValue(row, ['equipolocal', 'local']);
+        const awayRaw = getRowValue(row, ['equipovisitante', 'visitante']);
+        const homeIsEmpty = isEmptyTeamValue(homeRaw);
+        const awayIsEmpty = isEmptyTeamValue(awayRaw);
+
+        if (!dateValue || !timeValue || !placeValue) {
+          rowErrors.push(`Fila ${rowNumber}: faltan campos obligatorios (Fecha, Hora, Lugar).`);
+          continue;
+        }
+
+        if (homeIsEmpty !== awayIsEmpty) {
+          rowErrors.push(`Fila ${rowNumber}: equipo local y visitante deben completarse juntos o ambos vacios.`);
+          continue;
+        }
+
+        const phaseFromExisting = existingGame
+          ? phasesById.get(String(existingGame.phaseId)) || phasesByName.get(normalizeLookupText(existingGame.phaseName))
+          : null;
+        const selectedPhase =
+          (phaseRaw ? phasesById.get(phaseRaw) || phasesByName.get(normalizeLookupText(phaseRaw)) : null) ||
+          phaseFromExisting;
+
+        if (!selectedPhase) {
+          rowErrors.push(`Fila ${rowNumber}: la fase "${phaseRaw || existingGame?.phaseName || ''}" no existe.`);
+          continue;
+        }
+        if (selectedPhase.isGroup) {
+          rowErrors.push(`Fila ${rowNumber}: la fase "${selectedPhase.name}" es de grupos; usa la plantilla de grupos.`);
+          continue;
+        }
+
+        const allowAnyDivision = isFootballTournament && !divisionValue;
+        let homeTeam = null;
+        let awayTeam = null;
+
+        if (!homeIsEmpty) {
+          homeTeam = resolveTeamFromRow(homeRaw, teamsById, teamsByName, divisionValue, { allowAnyDivision });
+          awayTeam = resolveTeamFromRow(awayRaw, teamsById, teamsByName, divisionValue, { allowAnyDivision });
+
+          if (!homeTeam || !awayTeam) {
+            rowErrors.push(`Fila ${rowNumber}: no se encontro alguno de los equipos.`);
+            continue;
+          }
+          if (homeTeam.id === awayTeam.id) {
+            rowErrors.push(`Fila ${rowNumber}: equipo local y visitante no pueden ser el mismo.`);
+            continue;
+          }
+          if (
+            divisionValue &&
+            (homeTeam.division !== divisionValue || awayTeam.division !== divisionValue)
+          ) {
+            rowErrors.push(`Fila ${rowNumber}: la division no coincide con los equipos seleccionados.`);
+            continue;
+          }
+        }
+
+        const resolvedDivision =
+          divisionValue || existingGame?.division || homeTeam?.division || awayTeam?.division || null;
+
+        const payload = {
+          game_date: dateValue,
+          game_time: timeValue,
+          game_location: placeValue,
+          phas_id: Number(selectedPhase.id),
+          division: resolvedDivision,
+          ...(homeIsEmpty
+            ? { visitor: null, local: null }
+            : { visitor: Number(awayTeam.id), local: Number(homeTeam.id) })
+        };
+
+        try {
+          const response = gameIdRaw
+            ? await configService.updateBracketGame(tournamentId, gameIdRaw, payload)
+            : await configService.createBracketGame(tournamentId, payload);
+
+          if (!response?.success || !response?.data?.game) {
+            throw new Error(response?.message || 'Respuesta invalida del servidor.');
+          }
+          savedGames.push(mapDbGameToUi(response.data.game));
+          if (gameIdRaw) updatedCount += 1;
+          else createdCount += 1;
+        } catch (requestError) {
+          const requestMessage = getCalendarApiErrorMessage(
+            requestError,
+            gameIdRaw ? 'No se pudo actualizar el juego.' : 'No se pudo crear el juego.'
+          );
+          rowErrors.push(`Fila ${rowNumber}: ${requestMessage}`);
+        }
+      }
+
+      if (savedGames.length > 0) {
+        setGames((prev) => {
+          const savedById = new Map(savedGames.map((game) => [game.id, game]));
+          const merged = prev.map((game) => savedById.get(game.id) || game);
+          const newOnes = savedGames.filter((game) => !prev.some((existing) => existing.id === game.id));
+          return [...merged, ...newOnes].sort((a, b) => {
+            const aValue = `${a.date}T${a.time}`;
+            const bValue = `${b.date}T${b.time}`;
+            return aValue.localeCompare(bValue);
+          });
+        });
+        broadcastTournamentCoherenceChanged(tournamentId, { fullBracketReload: true });
+      }
+
+      if (savedGames.length > 0 && rowErrors.length === 0) {
+        setKnockoutBulkMessage(
+          `Importacion completada: ${savedGames.length} juego(s) procesado(s) (${updatedCount} actualizado(s), ${createdCount} creado(s)).`
+        );
+        return;
+      }
+
+      if (savedGames.length > 0 && rowErrors.length > 0) {
+        setKnockoutBulkMessage(`Importacion parcial: ${savedGames.length} juego(s) procesado(s).`);
+        setKnockoutBulkError(rowErrors.slice(0, 6).join(' | '));
+        return;
+      }
+
+      setKnockoutBulkError(rowErrors.length > 0 ? rowErrors.slice(0, 6).join(' | ') : 'No se pudo importar ningun juego.');
+    } catch (importError) {
+      const importMessage = getCalendarApiErrorMessage(importError, 'No se pudo importar el archivo Excel.');
+      setKnockoutBulkError(importMessage);
+      setKnockoutBulkMessage('');
+    } finally {
+      setImportingKnockoutGames(false);
+    }
+  };
+
+  const sortedGames = useMemo(
+    () =>
+      [...games].sort((a, b) => {
+        const aValue = `${a.date}T${a.time}`;
+        const bValue = `${b.date}T${b.time}`;
+        return aValue.localeCompare(bValue);
+      }),
+    [games]
+  );
+
+  const totalGamesPages = useMemo(
+    () => Math.max(1, Math.ceil(sortedGames.length / GAMES_PER_PAGE)),
+    [sortedGames.length]
+  );
+
+  useEffect(() => {
+    setGamesPage((prev) => Math.min(prev, totalGamesPages));
+  }, [totalGamesPages]);
+
+  const paginatedSortedGames = useMemo(() => {
+    const start = (gamesPage - 1) * GAMES_PER_PAGE;
+    return sortedGames.slice(start, start + GAMES_PER_PAGE);
+  }, [sortedGames, gamesPage]);
+
+  const paginatedGroupedGames = useMemo(() => {
+    return paginatedSortedGames.reduce((acc, game) => {
       const key = game.date;
       if (!acc[key]) acc[key] = [];
       acc[key].push(game);
       return acc;
     }, {});
-  }, [games]);
+  }, [paginatedSortedGames]);
 
-  const orderedDates = useMemo(
-    () => Object.keys(groupedGames).sort((a, b) => a.localeCompare(b)),
-    [groupedGames]
+  const paginatedOrderedDates = useMemo(
+    () => Object.keys(paginatedGroupedGames).sort((a, b) => a.localeCompare(b)),
+    [paginatedGroupedGames]
   );
-  const gameNumberById = useMemo(() => {
-    const sortedGames = [...games].sort((a, b) => {
-      const aValue = `${a.date}T${a.time}`;
-      const bValue = `${b.date}T${b.time}`;
-      return aValue.localeCompare(bValue);
-    });
 
+  const gameNumberById = useMemo(() => {
     return sortedGames.reduce((acc, game, index) => {
       acc[game.id] = index + 1;
       return acc;
     }, {});
-  }, [games]);
+  }, [sortedGames]);
   const editingGameNumber = useMemo(() => {
     if (!editingGameId) return null;
     const targetGame = games.find((game) => game.id === editingGameId);
@@ -785,6 +1130,67 @@ function CalendarConfigPage() {
             </details>
           </div>
         </section>
+
+        {isFootballTournament ? (
+          <section className="calendar-config-bulk-card calendar-config-bulk-card--knockout">
+            <h2>Carga masiva eliminatorias (futbol)</h2>
+            <div className="calendar-config-bulk-panel">
+              <details>
+                <summary>Mostrar opciones de plantilla e importacion eliminatorias</summary>
+                <p className="calendar-config-bulk-subtitle">
+                  Descarga los partidos de fases distintas a grupos (octavos, cuartos, semifinal, final, etc.),
+                  completa fecha, hora y lugar (los equipos pueden quedar vacios si aun no estan definidos) y luego importa el archivo.
+                </p>
+                <div className="calendar-config-bulk-actions">
+                  <button
+                    type="button"
+                    className="calendar-config-bulk-btn"
+                    onClick={handleDownloadKnockoutTemplate}
+                    disabled={
+                      savingGame ||
+                      importingGames ||
+                      importingKnockoutGames ||
+                      loadingPhases ||
+                      loadingTeams ||
+                      loadingGames
+                    }
+                  >
+                    Descargar plantilla eliminatorias
+                  </button>
+                  <button
+                    type="button"
+                    className="calendar-config-bulk-btn calendar-config-bulk-import-btn"
+                    onClick={handleOpenKnockoutImportDialog}
+                    disabled={
+                      savingGame ||
+                      importingGames ||
+                      importingKnockoutGames ||
+                      loadingPhases ||
+                      loadingTeams ||
+                      loadingGames
+                    }
+                  >
+                    {importingKnockoutGames ? 'Importando...' : 'Importar eliminatorias'}
+                  </button>
+                  <input
+                    ref={knockoutFileInputRef}
+                    type="file"
+                    accept=".xlsx,.xls"
+                    className="calendar-config-hidden-input"
+                    onChange={handleImportKnockoutFromExcel}
+                  />
+                </div>
+                {knockoutGames.length > 0 ? (
+                  <p className="calendar-config-hint">
+                    {knockoutGames.length} partido(s) eliminatorio(s) disponibles en la plantilla.
+                  </p>
+                ) : null}
+                {knockoutBulkMessage ? <p className="calendar-config-hint">{knockoutBulkMessage}</p> : null}
+                {knockoutBulkError ? <p className="calendar-config-error">{knockoutBulkError}</p> : null}
+              </details>
+            </div>
+          </section>
+        ) : null}
 
         <section className="calendar-config-form-card" ref={formCardRef}>
           <h2>{editingGameId ? `Editar Juego ${editingGameNumber ?? editingGameId}` : 'Nuevo Juego'}</h2>
@@ -914,75 +1320,104 @@ function CalendarConfigPage() {
         <section className="calendar-config-list">
           {loadingGames ? (
             <div className="calendar-config-empty">Cargando juegos...</div>
-          ) : orderedDates.length === 0 ? (
+          ) : sortedGames.length === 0 ? (
             <div className="calendar-config-empty">Aun no hay juegos registrados.</div>
           ) : (
-            orderedDates.map((dateKey) => (
-              <div key={dateKey} className="calendar-day-block">
-                <h3>{formatDateHeader(dateKey)}</h3>
-                <div className="calendar-game-list">
-                  {groupedGames[dateKey].map((game) => (
-                    <article key={game.id} className="calendar-game-card">
-                      <div className="calendar-game-top">
-                        <div className="calendar-game-actions">
-                          <span>{`Juego ${game.gameNum ?? gameNumberById[game.id] ?? 1}`}</span>
+            <>
+              {paginatedOrderedDates.map((dateKey) => (
+                <div key={dateKey} className="calendar-day-block">
+                  <h3>{formatDateHeader(dateKey)}</h3>
+                  <div className="calendar-game-list">
+                    {paginatedGroupedGames[dateKey].map((game) => (
+                      <article key={game.id} className="calendar-game-card">
+                        <div className="calendar-game-top">
+                          <div className="calendar-game-actions">
+                            <span>{`Juego ${game.gameNum ?? gameNumberById[game.id] ?? 1}`}</span>
+                          </div>
+                          <p>{formatGameDateTime(game.date, game.time)}</p>
                         </div>
-                        <p>{formatGameDateTime(game.date, game.time)}</p>
-                      </div>
 
-                      <div className="calendar-game-place">{game.place}</div>
-                      {game.phaseName ? <div className="calendar-game-place">Fase: {game.phaseName}</div> : null}
+                        <div className="calendar-game-place">{game.place}</div>
+                        {game.phaseName ? <div className="calendar-game-place">Fase: {game.phaseName}</div> : null}
 
-                      <div className="calendar-game-team-row">
-                        <span className="calendar-game-team-name">
-                          <img
-                            src={game.homeTeamImage || TEAM_FALLBACK_IMAGE}
-                            alt={game.homeTeamName || game.homeTeam || 'Equipo local'}
-                            loading="lazy"
-                            decoding="async"
-                            onError={(event) => {
-                              if (!event.currentTarget.src.includes(TEAM_FALLBACK_IMAGE)) {
-                                event.currentTarget.src = TEAM_FALLBACK_IMAGE;
-                              }
-                            }}
-                          />
-                          {game.homeTeamName || game.homeTeam}
-                        </span>
-                        <strong>0</strong>
-                      </div>
-                      <div className="calendar-game-team-row">
-                        <span className="calendar-game-team-name">
-                          <img
-                            src={game.awayTeamImage || TEAM_FALLBACK_IMAGE}
-                            alt={game.awayTeamName || game.awayTeam || 'Equipo visitante'}
-                            loading="lazy"
-                            decoding="async"
-                            onError={(event) => {
-                              if (!event.currentTarget.src.includes(TEAM_FALLBACK_IMAGE)) {
-                                event.currentTarget.src = TEAM_FALLBACK_IMAGE;
-                              }
-                            }}
-                          />
-                          {game.awayTeamName || game.awayTeam}
-                        </span>
-                        <strong>0</strong>
-                      </div>
-
-                      <div className="calendar-game-footer">
-                        <div className="calendar-game-buttons">
-                          <button type="button" className="calendar-game-action-btn calendar-game-edit" onClick={() => handleEditGame(game)} disabled={savingGame}>
-                            Editar
-                          </button>
-                          <button type="button" className="calendar-game-action-btn calendar-game-delete" onClick={() => handleDeleteGame(game.id)} disabled={savingGame}>
-                            Eliminar
-                          </button>
+                        <div className="calendar-game-team-row">
+                          <span className="calendar-game-team-name">
+                            <img
+                              src={game.homeTeamImage || TEAM_FALLBACK_IMAGE}
+                              alt={game.homeTeamName || game.homeTeam || 'Equipo local'}
+                              loading="lazy"
+                              decoding="async"
+                              onError={(event) => {
+                                if (!event.currentTarget.src.includes(TEAM_FALLBACK_IMAGE)) {
+                                  event.currentTarget.src = TEAM_FALLBACK_IMAGE;
+                                }
+                              }}
+                            />
+                            {game.homeTeamName || game.homeTeam}
+                          </span>
+                          <strong>0</strong>
                         </div>
-                      </div>
-                    </article>
-                  ))}
+                        <div className="calendar-game-team-row">
+                          <span className="calendar-game-team-name">
+                            <img
+                              src={game.awayTeamImage || TEAM_FALLBACK_IMAGE}
+                              alt={game.awayTeamName || game.awayTeam || 'Equipo visitante'}
+                              loading="lazy"
+                              decoding="async"
+                              onError={(event) => {
+                                if (!event.currentTarget.src.includes(TEAM_FALLBACK_IMAGE)) {
+                                  event.currentTarget.src = TEAM_FALLBACK_IMAGE;
+                                }
+                              }}
+                            />
+                            {game.awayTeamName || game.awayTeam}
+                          </span>
+                          <strong>0</strong>
+                        </div>
+
+                        <div className="calendar-game-footer">
+                          <div className="calendar-game-buttons">
+                            <button type="button" className="calendar-game-action-btn calendar-game-edit" onClick={() => handleEditGame(game)} disabled={savingGame}>
+                              Editar
+                            </button>
+                            <button type="button" className="calendar-game-action-btn calendar-game-delete" onClick={() => handleDeleteGame(game.id)} disabled={savingGame}>
+                              Eliminar
+                            </button>
+                          </div>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))
+              ))}
+
+              {totalGamesPages > 1 ? (
+                <nav className="calendar-config-pagination" aria-label="Paginacion de partidos">
+                  <button
+                    type="button"
+                    className="calendar-config-pagination-btn"
+                    onClick={() => setGamesPage((prev) => Math.max(1, prev - 1))}
+                    disabled={gamesPage <= 1}
+                  >
+                    Anterior
+                  </button>
+                  <span className="calendar-config-pagination-info">
+                    Pagina {gamesPage} de {totalGamesPages}
+                    {' · '}
+                    {(gamesPage - 1) * GAMES_PER_PAGE + 1}-
+                    {Math.min(gamesPage * GAMES_PER_PAGE, sortedGames.length)} de {sortedGames.length} partidos
+                  </span>
+                  <button
+                    type="button"
+                    className="calendar-config-pagination-btn"
+                    onClick={() => setGamesPage((prev) => Math.min(totalGamesPages, prev + 1))}
+                    disabled={gamesPage >= totalGamesPages}
+                  >
+                    Siguiente
+                  </button>
+                </nav>
+              ) : null}
+            </>
           )}
         </section>
       </main>

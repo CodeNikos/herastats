@@ -4,8 +4,11 @@ const pool = require('../config/database');
 const STAGE_TO_PHASE_NUM = {
   Groups: 1,
   Playoffs: 2,
-  Semifinals: 3,
-  Final: 4
+  Dieciseisavos: 2,
+  Octavos: 3,
+  Cuartos: 4,
+  Semifinals: 5,
+  Final: 6
 };
 
 class Phase {
@@ -27,7 +30,7 @@ class Phase {
 
   static resolvePhaseNum(stage, explicitNum) {
     const n = explicitNum != null && explicitNum !== '' ? parseInt(explicitNum, 10) : NaN;
-    if (Number.isInteger(n) && n >= 1 && n <= 4) return n;
+    if (Number.isInteger(n) && n >= 1) return n;
     const key = String(stage || '').trim();
     return STAGE_TO_PHASE_NUM[key] ?? null;
   }

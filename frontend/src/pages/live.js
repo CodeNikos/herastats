@@ -20,6 +20,7 @@ import '../styles/toast.css';
 import './live.css';
 
 const TEAM_FALLBACK_IMAGE = '/Hera_logo.png';
+const FOOTBALL_SPORT_ID = 2;
 
 function trimNonemptyStr(v) {
   if (v == null) return '';
@@ -226,6 +227,7 @@ function LivePage() {
 
   const [phaseSeconds, setPhaseSeconds] = useState(0);
   const [gameRow, setGameRow] = useState(null);
+  const [tournamentSportId, setTournamentSportId] = useState(null);
 
   /** Roster y lógica de ofensiva alineadas con BD si faltan IDs en la URL. */
   const rosterHomeIdStr = useMemo(() => {
@@ -288,6 +290,11 @@ function LivePage() {
 
   const gameFinished = useMemo(() => isGameFinishedState(gameRow?.estado), [gameRow]);
 
+  const isFootballTournament = useMemo(
+    () => Number(tournamentSportId) === FOOTBALL_SPORT_ID,
+    [tournamentSportId]
+  );
+
   const {
     tiempo,
     isPausedByUser,
@@ -307,7 +314,7 @@ function LivePage() {
     phaseSeconds,
     gameFinished,
     gameRow,
-    persistEnabled: isUserAuthenticated && !gameFinished,
+    persistEnabled: isUserAuthenticated && !gameFinished && !isFootballTournament,
     tournamentId: tournamentIdParam,
     gameId: gameIdParam
   });
@@ -320,6 +327,7 @@ function LivePage() {
     const loadGame = async () => {
       setGameLoadError('');
       setGameRow(null);
+      setTournamentSportId(null);
       if (!gameIdParam || !tournamentIdParam) {
         setGameLoading(false);
         setGameLoadError('Faltan parámetros del partido (gameId o tournamentId).');
@@ -327,8 +335,16 @@ function LivePage() {
       }
       try {
         setGameLoading(true);
-        const res = await configService.getGames(tournamentIdParam);
+        const [res, tRes] = await Promise.all([
+          configService.getGames(tournamentIdParam),
+          configService.getTournamentById(tournamentIdParam).catch(() => null)
+        ]);
         if (cancelled) return;
+        if (tRes?.success && tRes.data?.tournament) {
+          setTournamentSportId(tRes.data.tournament.sport_id ?? null);
+        } else {
+          setTournamentSportId(null);
+        }
         if (!res?.success) {
           setGameLoadError(res?.message || 'No se pudo cargar el partido.');
           return;
@@ -480,7 +496,7 @@ function LivePage() {
         setLiveEvents(events);
 
         const clock = computeLiveClockFromEvents(events, phaseSec, Date.now());
-        if (!isGameFinishedState(gameRow.estado) && wantStart && !clock.hasStart) {
+        if (!isFootballTournament && !isGameFinishedState(gameRow.estado) && wantStart && !clock.hasStart) {
           beginLocalStartCountdown();
         }
         if (wantStart) stripStartedParam();
@@ -489,7 +505,7 @@ function LivePage() {
         const fb = parsePhaseDurationToHms(null);
         const phaseSec = phaseHmsToSeconds(fb.horas, fb.minutos, fb.segundos);
         setPhaseSeconds(phaseSec);
-        if (wantStart) {
+        if (!isFootballTournament && wantStart) {
           beginLocalStartCountdown();
           stripStartedParam();
         }
@@ -509,10 +525,12 @@ function LivePage() {
     gameIdParam,
     rosterHomeIdStr,
     rosterAwayIdStr,
-    setSearchParams
+    setSearchParams,
+    isFootballTournament
   ]);
 
   useEffect(() => {
+    if (isFootballTournament) return undefined;
     const onVis = () => {
       if (document.visibilityState === 'visible') {
         resyncLiveClockFromDb();
@@ -520,7 +538,17 @@ function LivePage() {
     };
     document.addEventListener('visibilitychange', onVis);
     return () => document.removeEventListener('visibilitychange', onVis);
-  }, [resyncLiveClockFromDb]);
+  }, [resyncLiveClockFromDb, isFootballTournament]);
+
+  const handleYellowCardPress = useCallback(() => {
+    if (gameEnded) return;
+    showToast('Tarjeta amarilla: funcionalidad en desarrollo', { variant: 'info' });
+  }, [gameEnded]);
+
+  const handleRedCardPress = useCallback(() => {
+    if (gameEnded) return;
+    showToast('Tarjeta roja: funcionalidad en desarrollo', { variant: 'info' });
+  }, [gameEnded]);
 
   const halfEventAlreadyRecorded = useMemo(
     () =>
@@ -836,11 +864,7 @@ function LivePage() {
       setTimeoutModalOpen(false);
       if (process.env.NODE_ENV !== 'production') {
         // eslint-disable-next-line no-console
-        console.warn(
-          '[live] No se registró TIMEOUT:',
-          msg,
-          '— Si usas backend `npm run start:test` (puerto 5001), el frontend debe ir con `npm run start:test` o `REACT_APP_API_URL=http://localhost:5001/api`.'
-        );
+        console.warn('[live] No se registró TIMEOUT:', msg);
       }
     } finally {
       setTimeoutPosting(false);
@@ -1210,7 +1234,7 @@ function LivePage() {
     <div className="live-page">
       <div className="live-topbar">
         {isUserAuthenticated ? (
-          <Navbar hideAmbientToggle={goalModalOpen} />
+          <Navbar tournamentId={tournamentIdParam} hideAmbientToggle={goalModalOpen} />
         ) : (
           <Noauth_Navbar hideAmbientToggle={goalModalOpen} />
         )}
@@ -1250,12 +1274,18 @@ function LivePage() {
               </div>
             </div>
 
-            <div className="live-timer-wrap">
-              {gameLoading ? <p className="live-game-state">Cargando partido…</p> : null}
-              {!gameLoading && gameLoadError ? <p className="live-game-state live-game-state--error">{gameLoadError}</p> : null}
+            {!isFootballTournament ? (
+              <div className="live-timer-wrap">
+                {gameLoading ? <p className="live-game-state">Cargando partido…</p> : null}
+                {!gameLoading && gameLoadError ? (
+                  <p className="live-game-state live-game-state--error">{gameLoadError}</p>
+                ) : null}
 
-              <GamePhaseClockDisplay tiempo={tiempo} variant="live" />
-            </div>
+                <GamePhaseClockDisplay tiempo={tiempo} variant="live" />
+              </div>
+            ) : gameLoadError ? (
+              <p className="live-game-state live-game-state--error">{gameLoadError}</p>
+            ) : null}
             <button
               type="button"
               className="live-back-btn"
@@ -1313,7 +1343,9 @@ function LivePage() {
           <div className="live-roster-panel" role="tabpanel">
             {gameEnded ? (
               <p className="live-game-finished-banner" role="status">
-                Partido finalizado — el cronómetro está detenido.
+                {isFootballTournament
+                  ? 'Partido finalizado.'
+                  : 'Partido finalizado — el cronómetro está detenido.'}
               </p>
             ) : null}
             <p className="live-roster-hint">
@@ -1337,83 +1369,129 @@ function LivePage() {
                 )}
               </div>
             ) : null}
-            <div className="live-action-row">
-              <button
-                type="button"
-                className="live-action-btn live-action-btn--goal"
-                onClick={openGoalModal}
-                disabled={gameEnded}
-              >
-                <span className="live-action-btn-label">GOAL</span>
-              </button>
-              <button
-                type="button"
-                className="live-action-btn live-action-btn--timeout"
-                onClick={handleTimeoutPress}
-                disabled={gameEnded || timeoutPosting}
-              >
-                <span className="live-action-btn-label">{timeoutPosting ? '…' : 'TIMEOUT'}</span>
-              </button>
-            </div>
-            <div className="live-action-row live-action-row--secondary">
-              <button
-                type="button"
-                className="live-action-btn live-action-btn--pause"
-                onClick={handlePauseResumeClick}
-                disabled={gameEnded || metaSubmitting || (!isPausedByUser && !clockRunning)}
-                aria-pressed={isPausedByUser}
-                title={
-                  isPausedByUser
-                    ? 'Registrar reanudación y seguir el cronómetro del partido'
-                    : 'Registrar pausa y detener el cronómetro del partido'
-                }
-              >
-                <span className="live-action-btn-label">{isPausedByUser ? 'REANUDAR' : 'PAUSA'}</span>
-              </button>
-              <button
-                type="button"
-                className="live-action-btn live-action-btn--half"
-                onClick={handleHalfClick}
-                disabled={gameEnded || metaSubmitting || halfEventAlreadyRecorded}
-                title={
-                  halfEventAlreadyRecorded
-                    ? 'Medio tiempo ya registrado'
-                    : 'Registrar medio tiempo (HALF) en la línea de tiempo'
-                }
-              >
-                <span className="live-action-btn-label">HALF</span>
-              </button>
-              <button
-                type="button"
-                className="live-action-btn live-action-btn--forfeit"
-                onClick={openForfeitModal}
-                disabled={!canForfeit || gameEnded}
-                title={
-                  canForfeit
-                    ? 'Forfeit: elegir equipo que abandona; el rival gana 15–0 sin goles ni asistencias'
-                    : 'Solo disponible con el partido en curso (Ongoing) e iniciada sesión'
-                }
-              >
-                <span className="live-action-btn-label">{forfeitSubmitting ? '…' : 'FORFEIT'}</span>
-              </button>
-            </div>
-            <div className="live-action-row live-action-row--endgame">
-              <button
-                type="button"
-                className="live-action-btn live-action-btn--endgame"
-                onClick={openEndGameConfirm}
-                disabled={!canEndGame || endGameSubmitting}
-                title={
-                  canEndGame
-                    ? 'Finalizar partido: detiene el cronómetro y marca el juego como finalizado'
-                    : 'Solo disponible con el partido en curso (Ongoing) e iniciada sesión'
-                }
-              >
-                <span className="live-action-btn-label">
-                  {endGameSubmitting ? 'Finalizando…' : 'END'}
-                </span>
-              </button>
-            </div>
+            {isFootballTournament ? (
+              <div className="live-action-row live-action-row--football">
+                <button
+                  type="button"
+                  className="live-action-btn live-action-btn--goal"
+                  onClick={openGoalModal}
+                  disabled={gameEnded}
+                >
+                  <span className="live-action-btn-label">GOAL</span>
+                </button>
+                <button
+                  type="button"
+                  className="live-action-btn live-action-btn--yellow-card"
+                  onClick={handleYellowCardPress}
+                  disabled={gameEnded}
+                  title="Tarjeta amarilla (funcionalidad en desarrollo)"
+                >
+                  <span className="live-action-btn-label">TARJETA AMARILLA</span>
+                </button>
+                <button
+                  type="button"
+                  className="live-action-btn live-action-btn--red-card"
+                  onClick={handleRedCardPress}
+                  disabled={gameEnded}
+                  title="Tarjeta roja (funcionalidad en desarrollo)"
+                >
+                  <span className="live-action-btn-label">TARJETA ROJA</span>
+                </button>
+                <button
+                  type="button"
+                  className="live-action-btn live-action-btn--forfeit"
+                  onClick={openForfeitModal}
+                  disabled={!canForfeit || gameEnded}
+                  title={
+                    canForfeit
+                      ? 'Forfeit: elegir equipo que abandona; el rival gana 15–0 sin goles ni asistencias'
+                      : 'Solo disponible con el partido en curso (Ongoing) e iniciada sesión'
+                  }
+                >
+                  <span className="live-action-btn-label">{forfeitSubmitting ? '…' : 'FORFEIT'}</span>
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="live-action-row">
+                  <button
+                    type="button"
+                    className="live-action-btn live-action-btn--goal"
+                    onClick={openGoalModal}
+                    disabled={gameEnded}
+                  >
+                    <span className="live-action-btn-label">GOAL</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="live-action-btn live-action-btn--timeout"
+                    onClick={handleTimeoutPress}
+                    disabled={gameEnded || timeoutPosting}
+                  >
+                    <span className="live-action-btn-label">{timeoutPosting ? '…' : 'TIMEOUT'}</span>
+                  </button>
+                </div>
+                <div className="live-action-row live-action-row--secondary">
+                  <button
+                    type="button"
+                    className="live-action-btn live-action-btn--pause"
+                    onClick={handlePauseResumeClick}
+                    disabled={gameEnded || metaSubmitting || (!isPausedByUser && !clockRunning)}
+                    aria-pressed={isPausedByUser}
+                    title={
+                      isPausedByUser
+                        ? 'Registrar reanudación y seguir el cronómetro del partido'
+                        : 'Registrar pausa y detener el cronómetro del partido'
+                    }
+                  >
+                    <span className="live-action-btn-label">{isPausedByUser ? 'REANUDAR' : 'PAUSA'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="live-action-btn live-action-btn--half"
+                    onClick={handleHalfClick}
+                    disabled={gameEnded || metaSubmitting || halfEventAlreadyRecorded}
+                    title={
+                      halfEventAlreadyRecorded
+                        ? 'Medio tiempo ya registrado'
+                        : 'Registrar medio tiempo (HALF) en la línea de tiempo'
+                    }
+                  >
+                    <span className="live-action-btn-label">HALF</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="live-action-btn live-action-btn--forfeit"
+                    onClick={openForfeitModal}
+                    disabled={!canForfeit || gameEnded}
+                    title={
+                      canForfeit
+                        ? 'Forfeit: elegir equipo que abandona; el rival gana 15–0 sin goles ni asistencias'
+                        : 'Solo disponible con el partido en curso (Ongoing) e iniciada sesión'
+                    }
+                  >
+                    <span className="live-action-btn-label">{forfeitSubmitting ? '…' : 'FORFEIT'}</span>
+                  </button>
+                </div>
+                <div className="live-action-row live-action-row--endgame">
+                  <button
+                    type="button"
+                    className="live-action-btn live-action-btn--endgame"
+                    onClick={openEndGameConfirm}
+                    disabled={!canEndGame || endGameSubmitting}
+                    title={
+                      canEndGame
+                        ? 'Finalizar partido: detiene el cronómetro y marca el juego como finalizado'
+                        : 'Solo disponible con el partido en curso (Ongoing) e iniciada sesión'
+                    }
+                  >
+                    <span className="live-action-btn-label">
+                      {endGameSubmitting ? 'Finalizando…' : 'END'}
+                    </span>
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </section>
       </main>

@@ -19,6 +19,10 @@ const DEFAULT_EXPIRY_DAYS = 14;
  */
 async function maybeSendSpiritInvitesAfterGameFinished(tournamentId, gameId) {
   try {
+    if (!(await Game.tournamentAllowsSpiritSurvey(tournamentId))) {
+      return;
+    }
+
     const game = await Game.findById(gameId);
     if (!game || Number(game.torneo_id) !== Number(tournamentId)) {
       console.warn('[spirit-survey] omitido: partido no encontrado o torneo distinto', { tournamentId, gameId });

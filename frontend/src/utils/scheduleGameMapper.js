@@ -81,6 +81,7 @@ function mapSingleGameToScheduleRow(game, tournament, teamRows, teamLookup, tour
     gameNum: Number.isFinite(gameNumParsed) && gameNumParsed > 0 ? gameNumParsed : null,
     tournamentId: Number(tournament.torneo_id),
     tournamentName: tournament.name || 'Torneo',
+    sportId: tournament.sport_id != null ? Number(tournament.sport_id) : null,
     date: String(game.game_date).split('T')[0],
     time: String(game.game_time || '').slice(0, 5),
     place: game.game_location || '',

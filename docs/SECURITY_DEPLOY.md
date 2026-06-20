@@ -7,7 +7,7 @@
 - [ ] Rotar **Cloudinary** y **JWT** si algún secreto estuvo en Git (`backend/env.example` eliminado; revisar historial con `git log -p`).
 - [ ] `JWT_SECRET`: mínimo 32 caracteres aleatorios (`openssl rand -base64 48`). Distinto por entorno.
 - [ ] `HERASTATS_SEED_DEFAULT_SUPERUSER=false` en producción (por defecto el código ya no siembra en prod sin opt-in).
-- [ ] No commitear `.env`, `.env.test`, `.env.development.local`.
+- [ ] No commitear `.env`, `.env.development.local`.
 
 ### Backend
 
@@ -22,8 +22,15 @@
 - [ ] `REACT_APP_API_URL=https://api.tudominio.com/api` en el build (`npm run build` falla si falta)
 - [ ] `REACT_APP_GOOGLE_MAPS_API_KEY` con restricción por referrer en Google Cloud
 - [ ] No publicar carpeta `build/` con claves embebidas sin restricciones
+- [ ] `REACT_APP_GA4_MEASUREMENT_ID` solo si usas GA4; el banner de consentimiento debe mostrarse antes de cargar gtag
+- [ ] `ANALYTICS_IP_SALT` en backend (secreto); no se almacenan IPs en claro en `page_visits`
 
-### Operación
+### Privacidad (analytics)
+
+- Visitas internas: hash de IP + user-agent + día (`visitor_key`); retención configurable (`ANALYTICS_RETENTION_DAYS`).
+- GA4: solo tras aceptación explícita del usuario (localStorage `herastats_analytics_consent`).
+- Panel `/analytics`: acceso restringido a `superuser`.
+
 
 - [ ] Desactivar registro público (bloqueado en `NODE_ENV=production`)
 - [ ] Revisar usuarios bootstrap; cambiar contraseñas iniciales
@@ -41,13 +48,14 @@
 
 ## Seeds en desarrollo
 
-Los usuarios bootstrap **requieren** contraseña por env:
+El superusuario bootstrap **requiere** contraseña por env:
 
 ```env
-TEST_DEFAULT_SUPERUSER_EMAIL=admin@localhost
-TEST_DEFAULT_SUPERUSER_PASSWORD=contraseña_segura_de_al_menos_10_caracteres
-TEST_DEFAULT_ADMIN_PASSWORD=otra_contraseña_segura
+SEED_DEFAULT_SUPERUSER_EMAIL=bootstrap@localhost
+SEED_DEFAULT_SUPERUSER_PASSWORD=contraseña_segura_de_al_menos_10_caracteres
 ```
+
+(Las variables `TEST_DEFAULT_SUPERUSER_*` siguen siendo compatibles como alias.)
 
 ## Respuesta ante filtración de credenciales
 

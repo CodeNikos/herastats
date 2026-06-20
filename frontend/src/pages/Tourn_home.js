@@ -4,6 +4,9 @@ import { IoArrowBackSharp, IoCalendarOutline, IoLocationOutline, IoPeopleOutline
 import { configService } from '../services/configService';
 import Navbar from '../components/navbar';
 import Noauth_Navbar from '../components/noauth_Navbar';
+import SeoHead from '../components/SeoHead';
+import { DEFAULT_SITE_TITLE } from '../config/siteConfig';
+import { buildSportsOrganizationJsonLd } from '../utils/seoJsonLd';
 import { useAuth } from '../hooks/useAuth';
 import './tourn_home.css';
 
@@ -84,6 +87,15 @@ function Tourn_home() {
 
   return (
     <div className="home_container">
+      {tournament ? (
+        <SeoHead
+          title={`${tournament.name} | ${DEFAULT_SITE_TITLE}`}
+          description={`Información, equipos y estadísticas del torneo ${tournament.name}${tournament.year ? ` (${tournament.year})` : ''}.`}
+          pathname={`/tourn_home/${id}`}
+          image={tournament.image_url || undefined}
+          jsonLd={buildSportsOrganizationJsonLd({ ...tournament, torneo_id: id })}
+        />
+      ) : null}
       <div className="topbar_home">
         {isUserAuthenticated ? <Navbar tournamentId={id} /> : <Noauth_Navbar />}
       </div>

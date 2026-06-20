@@ -34,6 +34,13 @@ export function isAnotador(user) {
   return normalizeRole(user?.role) === 'anotador';
 }
 
+/** @param {unknown} user */
+/** @returns {boolean} */
+export function isAdminOrSuperuser(user) {
+  const r = normalizeRole(user?.role);
+  return r === 'admin' || r === 'superuser';
+}
+
 /**
  * @param {unknown} user
  * @param {string[]} allowedRoles

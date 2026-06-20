@@ -53,6 +53,13 @@ class Player {
         return normalized || null;
       });
     }
+    if (columns.has('position')) {
+      insertColumns.push('position');
+      valueAccessors.push((playerData) => {
+        const normalized = String(playerData.position || '').trim();
+        return normalized || null;
+      });
+    }
 
     return { insertColumns, valueAccessors };
   }
@@ -65,6 +72,7 @@ class Player {
       player_number: row.player_number ?? row.number ?? row.num_player ?? null,
       player_name: row.player_name ?? row.name ?? null,
       nickname: row.nickname ?? null,
+      position: row.position ?? null,
       created_at: row.created_at ?? null
     };
   }
@@ -88,6 +96,7 @@ class Player {
     await pool.query('ALTER TABLE player ADD COLUMN IF NOT EXISTS player_number INTEGER');
     await pool.query('ALTER TABLE player ADD COLUMN IF NOT EXISTS player_name VARCHAR(255)');
     await pool.query('ALTER TABLE player ADD COLUMN IF NOT EXISTS nickname VARCHAR(255)');
+    await pool.query('ALTER TABLE player ADD COLUMN IF NOT EXISTS position VARCHAR(255)');
     await pool.query('ALTER TABLE player ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP');
 
     await pool.query(`
@@ -150,6 +159,7 @@ class Player {
         ? 'p.name'
         : 'NULL';
     const nicknameExpr = columns.has('nickname') ? 'p.nickname' : 'NULL';
+    const positionExpr = columns.has('position') ? 'p.position' : 'NULL';
 
     if (!playerNumberExpr || playerNameExpr === 'NULL') {
       throw new Error('La tabla player no tiene columnas compatibles para listar jugadores');
@@ -162,6 +172,7 @@ class Player {
         p.${playerNumberExpr} AS player_number,
         ${playerNameExpr} AS player_name,
         ${nicknameExpr} AS nickname,
+        ${positionExpr} AS position,
         p.created_at,
         t.name AS team_name,
         t.division AS category

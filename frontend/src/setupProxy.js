@@ -2,7 +2,7 @@ const { createProxyMiddleware } = require('http-proxy-middleware');
 
 /**
  * Backend cuando el navegador usa rutas relativas bajo `/api`.
- * Si `REACT_APP_API_URL` es el API de pruebas (ej. `:5001/api`), el proxy debe usar el mismo host/puerto.
+ * Si `REACT_APP_API_URL` está definida, el proxy usa el mismo host/puerto.
  */
 function deriveProxyTarget() {
   const raw = process.env.REACT_APP_API_URL;

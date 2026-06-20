@@ -4,7 +4,8 @@ const {
   login,
   verifyToken,
   setPassword,
-  updateProfile
+  updateProfile,
+  getTournamentCreationEligibility
 } = require('../controllers/authController');
 const { authenticate } = require('../middleware/auth');
 const { authRateLimiter } = require('../middleware/security');
@@ -16,5 +17,6 @@ router.post('/login', authRateLimiter, login);
 router.get('/verify', verifyToken);
 router.post('/set-password', authRateLimiter, setPassword);
 router.patch('/profile', authenticate, updateProfile);
+router.get('/tournament-creation-eligibility', authenticate, getTournamentCreationEligibility);
 
 module.exports = router;

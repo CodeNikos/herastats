@@ -32,6 +32,8 @@ const {
   createPlayer,
   createPlayersBulk,
   createGameEvent,
+  updateGameEvent,
+  deleteGameEvent,
   getGameEvents,
   getGameTimeoutCounts,
   getTournamentPlacements,
@@ -101,6 +103,8 @@ router.post('/tournament/:id/games/:gameId/spirit-survey/manual', authenticate, 
 router.get('/tournament/:id/stats/player-events', getTournamentPlayerEventStats);
 router.get('/tournament/:id/spirit-stats', authenticate, requireTournamentEditAccess, getTournamentSpiritStats);
 router.post('/tournament/:id/games/:gameId/events', authenticate, requireScorer, requireTournamentEditAccess, createGameEvent);
+router.patch('/tournament/:id/games/:gameId/events/:eventId', authenticate, requireScorer, requireTournamentEditAccess, updateGameEvent);
+router.delete('/tournament/:id/games/:gameId/events/:eventId', authenticate, requireScorer, requireTournamentEditAccess, deleteGameEvent);
 router.post('/tournament/:id/games/:gameId/forfeit', authenticate, requireScorer, requireTournamentEditAccess, postGameForfeit);
 router.post('/tournament/:id/games', authenticate, requireTournamentAdmin, requireTournamentEditAccess, createGame);
 router.patch('/tournament/:id/games/:gameId/estado', authenticate, requireScorer, requireTournamentEditAccess, patchGameEstado);

@@ -1,25 +1,20 @@
 import './navbar.css';
 import {  AiOutlineMenu, AiOutlineClose   } from "react-icons/ai";
-import { TbUserHexagon, TbTournament, TbLogout, TbChevronDown } from "react-icons/tb";
-import { TbHierarchy3 } from "react-icons/tb";
+import { TbUserHexagon, TbTournament, TbLogout, TbChevronDown, TbHierarchy3, TbChartBar } from "react-icons/tb";
 import { IoCalendarNumberSharp } from "react-icons/io5";
-import { MdGroups } from "react-icons/md";
+import { MdGroups, MdOutlineSports } from "react-icons/md";
 import { RiTeamFill } from "react-icons/ri";
 import { FaRunning } from "react-icons/fa";
 import { FaUsersCog, FaUserEdit, FaUserPlus } from "react-icons/fa";
 import { useState, useRef, useEffect } from 'react';
-import { useLocation, useParams } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import ProfileEditModal from './ProfileEditModal';
 import AddUserModal from './AddUserModal';
 import ProfileAmbientToggle from './ProfileAmbientToggle';
-import { DevApiProfileMenuSection } from './DevApiProfileSwitcher';
-import { useDevApiSwitcherEligible } from '../hooks/useDevApiSwitcherEligible';
 import { appHref, appPath } from '../config/appRoutes';
+import { useResolvedTournamentId } from '../hooks/useResolvedTournamentId';
+
 import { isAdmin, isAnotador, isSuperuser, normalizeRole } from '../utils/userRoles';
-
-
-const DEV_API_SWITCH_ROLES = ['admin', 'superuser'];
 
 const ROLE_LABELS = {
     superuser: 'Superusuario',
@@ -33,23 +28,16 @@ function roleLabelForUser(user) {
 }
 
 function Navbar({ tournamentId = null, hideAmbientToggle = false }) {
-    const devApiSwitcherVisible = useDevApiSwitcherEligible(DEV_API_SWITCH_ROLES);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [profileMenuOpen, setProfileMenuOpen] = useState(false);
     const [profileEditOpen, setProfileEditOpen] = useState(false);
     const [addUserOpen, setAddUserOpen] = useState(false);
     const profileMenuRef = useRef(null);
     const { isAuthenticated, logout, user } = useAuth();
-    const { id: routeTournamentId } = useParams();
-    const location = useLocation();
-    
-    // Verificar token en localStorage como indicador adicional (fallback)
-    const hasToken = localStorage.getItem('token') !== null;
-    // Usar isAuthenticated del hook, pero también considerar el token como fallback mientras carga
-    const isUserAuthenticated = isAuthenticated || hasToken;
+    const currentTournamentId = useResolvedTournamentId(tournamentId);
 
-    const queryTournamentId = new URLSearchParams(location.search).get('tournamentId');
-    const currentTournamentId = tournamentId || routeTournamentId || queryTournamentId;
+    const hasToken = localStorage.getItem('token') !== null;
+    const isUserAuthenticated = isAuthenticated || hasToken;
 
     const configRef = appHref(currentTournamentId ? `/config/${currentTournamentId}` : '/config');
     const teamRef = currentTournamentId
@@ -81,6 +69,8 @@ function Navbar({ tournamentId = null, hideAmbientToggle = false }) {
       : appHref('/poolbrackets?view=all');
     const homeRef = appPath('/home');
     const userManagementRef = appPath('/users');
+    const analyticsRef = appPath('/analytics');
+    const sportsManagementRef = appPath('/sports');
     const userIsSuperUser = isSuperuser(user);
     const userIsAdmin = isAdmin(user);
     const userIsAnotador = isAnotador(user);
@@ -125,7 +115,10 @@ function Navbar({ tournamentId = null, hideAmbientToggle = false }) {
           {"id": "5","icon":"IoCalendarNumberSharp","name": "Calendario","description":"Calendario del torneo","ref": calendarconfigRef},
           {"id": "6","icon":"TbHierarchy3","name": "Brackets","description":"editar juegos y llaves","ref": configBracketsRef},
           ...(userIsSuperUser
-            ? [{"id": "7","icon":"FaUsersCog","name": "Usuarios","description":"gestion de usuarios","ref": userManagementRef}]
+            ? [
+                {"id": "7","icon":"FaUsersCog","name": "Usuarios","description":"gestion de usuarios","ref": userManagementRef},
+                {"id": "8","icon":"TbChartBar","name": "Visitas","description":"estadisticas del sitio","ref": analyticsRef}
+              ]
             : [])
         ] 
       } 
@@ -138,7 +131,8 @@ function Navbar({ tournamentId = null, hideAmbientToggle = false }) {
         MdGroups: MdGroups,
         IoCalendarNumberSharp: IoCalendarNumberSharp,
         TbHierarchy3: TbHierarchy3,
-        FaUsersCog: FaUsersCog
+        FaUsersCog: FaUsersCog,
+        TbChartBar: TbChartBar
       };
 
 return (
@@ -222,12 +216,6 @@ return (
                                 )}
                             </div>
                             {!hideAmbientToggle ? <ProfileAmbientToggle dense /> : null}
-                            {devApiSwitcherVisible ? (
-                                <DevApiProfileMenuSection
-                                    variant="panel"
-                                    onBeforeNavigate={() => setIsMobileMenuOpen(false)}
-                                />
-                            ) : null}
                             <button
                                 type="button"
                                 className="mobile-link login-mobile mobile-profile-edit-btn"
@@ -247,8 +235,26 @@ return (
                                         setAddUserOpen(true);
                                     }}
                                 >
-                                    Agregar usuario
+                                    {userIsSuperUser ? 'Administración de usuarios' : 'Agregar usuario'}
                                 </button>
+                            )}
+                            {userIsSuperUser && (
+                                <a
+                                    href={analyticsRef}
+                                    className="mobile-link login-mobile mobile-profile-edit-btn"
+                                    onClick={() => setIsMobileMenuOpen(false)}
+                                >
+                                    Visitas del sitio
+                                </a>
+                            )}
+                            {userIsSuperUser && (
+                                <a
+                                    href={sportsManagementRef}
+                                    className="mobile-link login-mobile mobile-profile-edit-btn"
+                                    onClick={() => setIsMobileMenuOpen(false)}
+                                >
+                                    Gestión de deportes
+                                </a>
                             )}
                             <a
                                 href={appPath('/')}
@@ -263,12 +269,6 @@ return (
                         </>
                     ) : (
                         <>
-                            {devApiSwitcherVisible ? (
-                                <DevApiProfileMenuSection
-                                    variant="compact"
-                                    onBeforeNavigate={() => setIsMobileMenuOpen(false)}
-                                />
-                            ) : null}
                             <a href={appPath('/login')} className="mobile-link login-mobile">Login</a>
                         </>
                     )}
@@ -306,12 +306,6 @@ return (
                                 )}
                             </div>
                             {!hideAmbientToggle ? <ProfileAmbientToggle /> : null}
-                            {devApiSwitcherVisible ? (
-                                <DevApiProfileMenuSection
-                                    variant="panel"
-                                    onBeforeNavigate={() => setProfileMenuOpen(false)}
-                                />
-                            ) : null}
                             <button
                                 type="button"
                                 className="user-profile-logout-btn"
@@ -335,8 +329,30 @@ return (
                                     }}
                                 >
                                     <FaUserPlus size={20} />
-                                    <span>Agregar usuario</span>
+                                    <span>{userIsSuperUser ? 'Administración de usuarios' : 'Agregar usuario'}</span>
                                 </button>
+                            )}
+                            {userIsSuperUser && (
+                                <a
+                                    href={analyticsRef}
+                                    className="user-profile-logout-btn"
+                                    role="menuitem"
+                                    onClick={() => setProfileMenuOpen(false)}
+                                >
+                                    <TbChartBar size={20} />
+                                    <span>Visitas del sitio</span>
+                                </a>
+                            )}
+                            {userIsSuperUser && (
+                                <a
+                                    href={sportsManagementRef}
+                                    className="user-profile-logout-btn"
+                                    role="menuitem"
+                                    onClick={() => setProfileMenuOpen(false)}
+                                >
+                                    <MdOutlineSports size={20} />
+                                    <span>Gestión de deportes</span>
+                                </a>
                             )}
 
                             <button
@@ -352,12 +368,9 @@ return (
                     )}
                 </div>
             ) : (
-                <>
-                    {devApiSwitcherVisible ? <DevApiProfileMenuSection variant="inline" /> : null}
-                    <a href={appPath('/login')} className="login">
+                <a href={appPath('/login')} className="login">
                         <span className='icon'><TbUserHexagon size={25} /></span><span className='text'>Login</span>
                     </a>
-                </>
             )}
          </div>
 

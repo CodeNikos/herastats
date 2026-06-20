@@ -4,13 +4,19 @@ node_modules/
 # Variables y secretos (no versionar)
 backend/.env
 backend/.env.local
-backend/.env.test
 backend/.env.seenode
+backend/.env.test
 backend/.env.*.local
 frontend/.env.development.local
 frontend/.env.local
 frontend/.env.production.local
 frontend/.env.seenode
+
+# Build CRA (Seenode genera build en el servidor)
+frontend/build/
+
+# Cache de desarrollo
+frontend/node_modules/.cache/
 
 # Logs / OS
 .DS_Store

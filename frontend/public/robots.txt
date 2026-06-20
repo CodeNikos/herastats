@@ -1,0 +1,29 @@
+# Herastats — robots.txt
+# Sustituir YOUR_DOMAIN por tu dominio en producción o configurar REACT_APP_SITE_URL en deploy.
+
+User-agent: *
+Allow: /home
+Allow: /calendar
+Allow: /stats
+Allow: /poolbrackets
+Allow: /tourn_home/
+Allow: /game
+Disallow: /login
+Disallow: /set-password
+Disallow: /users
+Disallow: /analytics
+Disallow: /config
+Disallow: /team
+Disallow: /players
+Disallow: /groupsconfig
+Disallow: /calendarconfig
+Disallow: /brackets
+Disallow: /anotacion
+Disallow: /game_events
+Disallow: /football_events
+Disallow: /live
+Disallow: /sports
+Disallow: /spirit-survey
+
+# Actualizar con tu dominio (también disponible vía API: /sitemap.xml en el backend)
+Sitemap: https://www.herastats.com/sitemap.xml

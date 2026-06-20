@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import Navbar from '../components/navbar';
+import SeoHead from '../components/SeoHead';
+import { DEFAULT_SITE_DESCRIPTION, DEFAULT_SITE_TITLE } from '../config/siteConfig';
 import { configService } from '../services/configService';
 import { HERASTATS_GAMES_CHANGED_STORAGE, HERASTATS_TOURNAMENT_COHERENCE, normalizeTournamentIdForCoherence } from '../utils/tournamentSync';
 import {
@@ -11,6 +13,7 @@ import {
 import './stats.css';
 
 const MIN_ROWS_PER_GROUP = 4;
+const FOOTBALL_SPORT_ID = 2;
 /** Partidos clasificatorio superior vs inferior en la clasificación por grupos (banda verde vs naranja). */
 const STANDINGS_UPPER_BRACKET_MAX_RANK = 4;
 const TEAM_FALLBACK_IMAGE = '/Hera_logo.png';
@@ -35,6 +38,34 @@ function standingsRowStripeClass(rank) {
   if (rank == null || !Number.isFinite(rank)) return '';
   if (rank <= STANDINGS_UPPER_BRACKET_MAX_RANK) return 'stats_standings_row--tier-upper';
   return 'stats_standings_row--tier-lower';
+}
+
+function isFootballSportName(value) {
+  const text = String(value || '').trim().toLowerCase();
+  return (
+    text.includes('futbol') ||
+    text.includes('fútbol') ||
+    text.includes('football') ||
+    text.includes('soccer')
+  );
+}
+
+function enrichFootballPlayerRow(row) {
+  const goals = Number(row.goals) || 0;
+  const games = Number(row.games) || 0;
+  const yellowcards = Number(row.yellowcards) || 0;
+  const redcards = Number(row.redcards) || 0;
+  const denom = games > 0 ? games : 1;
+  return {
+    ...row,
+    goals,
+    games,
+    yellowcards,
+    redcards,
+    glsGm: goals / denom,
+    ycGm: yellowcards / denom,
+    rcGm: redcards / denom
+  };
 }
 
 function enrichPlayerRow(row) {
@@ -107,6 +138,13 @@ function sortPlayerRows(rows, sortKey, asc) {
         va = Number(a[sortKey]) || 0;
         vb = Number(b[sortKey]) || 0;
         return (va - vb) * dir;
+      case 'yellowcards':
+      case 'redcards':
+      case 'ycGm':
+      case 'rcGm':
+        va = Number(a[sortKey]) || 0;
+        vb = Number(b[sortKey]) || 0;
+        return (va - vb) * dir;
       default:
         return 0;
     }
@@ -124,6 +162,9 @@ function StatsPage() {
   const [loadingTeams, setLoadingTeams] = useState(true);
   const [teamsError, setTeamsError] = useState('');
   const [division, setDivision] = useState('');
+  const [tournamentSportName, setTournamentSportName] = useState('');
+  const [tournamentSportId, setTournamentSportId] = useState(null);
+  const [tournamentDisplayName, setTournamentDisplayName] = useState('');
 
   const [statsSection, setStatsSection] = useState('groups');
   const [playerTabKey, setPlayerTabKey] = useState('');
@@ -191,9 +232,10 @@ function StatsPage() {
           setLoadingTeams(true);
         }
         setTeamsError('');
-        const [response, gamesResponse] = await Promise.all([
+        const [response, gamesResponse, tournamentResponse] = await Promise.all([
           configService.getTeams(tournamentId),
-          configService.getGames(tournamentId)
+          configService.getGames(tournamentId),
+          configService.getTournamentById(tournamentId)
         ]);
 
         if (!response.success) {
@@ -204,6 +246,17 @@ function StatsPage() {
           setTournamentGames([]);
         } else {
           setTournamentGames(Array.isArray(gamesResponse.data?.games) ? gamesResponse.data.games : []);
+        }
+
+        if (tournamentResponse?.success && tournamentResponse.data?.tournament) {
+          const tournament = tournamentResponse.data.tournament;
+          setTournamentSportName(tournament.sport_name || '');
+          setTournamentSportId(tournament.sport_id ?? null);
+          setTournamentDisplayName(tournament.name || '');
+        } else {
+          setTournamentSportName('');
+          setTournamentSportId(null);
+          setTournamentDisplayName('');
         }
 
         const dbTeams = (response.data?.teams || []).map((team) => ({
@@ -225,6 +278,8 @@ function StatsPage() {
         const errorMessage = error.response?.data?.message || error.message || 'Error al cargar los equipos.';
         setTeamsError(errorMessage);
         setTournamentGames([]);
+        setTournamentSportName('');
+        setTournamentSportId(null);
       } finally {
         setLoadingTeams(false);
       }
@@ -235,7 +290,9 @@ function StatsPage() {
 
   useEffect(() => {
     if (!tournamentId || statsSection !== 'players') return;
-    if (!playerTabKey || playerTabKey === '__all__') return;
+    const isFootball =
+      Number(tournamentSportId) === FOOTBALL_SPORT_ID || isFootballSportName(tournamentSportName);
+    if (!isFootball && (!playerTabKey || playerTabKey === '__all__')) return;
     let cancelled = false;
     const silentRefresh = catalogRefreshNonce > 0;
     (async () => {
@@ -244,10 +301,15 @@ function StatsPage() {
       }
       setPlayerStatsError('');
       try {
-        const res = await configService.getTournamentPlayerEventStats(tournamentId, {
-          division: playerTabKey,
-          scope: playerStatsScope === 'groups' ? 'groups' : 'all'
-        });
+        const res = await configService.getTournamentPlayerEventStats(
+          tournamentId,
+          isFootball
+            ? { scope: 'all' }
+            : {
+                division: playerTabKey,
+                scope: playerStatsScope === 'groups' ? 'groups' : 'all'
+              }
+        );
         if (cancelled) return;
         if (!res?.success) {
           throw new Error(res?.message || 'No se pudieron cargar las estadisticas de jugadores.');
@@ -265,7 +327,15 @@ function StatsPage() {
     return () => {
       cancelled = true;
     };
-  }, [tournamentId, statsSection, playerTabKey, playerStatsScope, catalogRefreshNonce]);
+  }, [
+    tournamentId,
+    statsSection,
+    playerTabKey,
+    playerStatsScope,
+    catalogRefreshNonce,
+    tournamentSportId,
+    tournamentSportName
+  ]);
 
   useEffect(() => {
     if (!tournamentId || statsSection !== 'spirit') return undefined;
@@ -300,10 +370,29 @@ function StatsPage() {
     };
   }, [tournamentId, statsSection, spiritDivisionTab, catalogRefreshNonce]);
 
+  const isFootballTournament = useMemo(
+    () => Number(tournamentSportId) === FOOTBALL_SPORT_ID || isFootballSportName(tournamentSportName),
+    [tournamentSportId, tournamentSportName]
+  );
+
   const playerRows = useMemo(() => {
-    const enriched = (playerRowsRaw || []).map(enrichPlayerRow);
+    const enriched = (playerRowsRaw || []).map((row) =>
+      isFootballTournament ? enrichFootballPlayerRow(row) : enrichPlayerRow(row)
+    );
     return sortPlayerRows(enriched, playerSort.key, playerSort.asc);
-  }, [playerRowsRaw, playerSort]);
+  }, [playerRowsRaw, playerSort, isFootballTournament]);
+
+  useEffect(() => {
+    if (isFootballTournament && statsSection === 'spirit') {
+      setStatsSection('groups');
+    }
+  }, [isFootballTournament, statsSection]);
+
+  useEffect(() => {
+    if (isFootballTournament && playerSort.key === 'total') {
+      setPlayerSort({ key: 'goals', asc: false });
+    }
+  }, [isFootballTournament, playerSort.key]);
 
   const divisionOptions = useMemo(
     () => [...new Set(teams.map((team) => team.division))].sort((a, b) => a.localeCompare(b, 'es')),
@@ -433,7 +522,21 @@ function StatsPage() {
   const renderDivisionSelector = () => renderCategoryTabs(division, setDivision);
 
   return (
-    <div className="stats_page">
+    <div className={`stats_page${isFootballTournament ? ' stats_page--football' : ''}`}>
+      <SeoHead
+        title={
+          tournamentDisplayName
+            ? `Estadísticas — ${tournamentDisplayName} | ${DEFAULT_SITE_TITLE}`
+            : `Estadísticas | ${DEFAULT_SITE_TITLE}`
+        }
+        description={
+          tournamentDisplayName
+            ? `Tablas, rankings y espíritu de juego del torneo ${tournamentDisplayName}.`
+            : DEFAULT_SITE_DESCRIPTION
+        }
+        pathname="/stats"
+        search={tournamentId ? `tournamentId=${tournamentId}` : ''}
+      />
       <div className="stats_topbar">
         <Navbar tournamentId={tournamentId} />
       </div>
@@ -448,7 +551,9 @@ function StatsPage() {
             {statsSection === 'groups'
               ? 'Estadisticas por Grupos'
               : statsSection === 'players'
-                ? 'Player Stats'
+                ? isFootballTournament
+                  ? 'Ranking de jugadores'
+                  : 'Player Stats'
                 : 'Spirit Stats'}
           </h1>
           <nav className="stats_section_tabs" aria-label="Tipo de estadisticas">
@@ -466,13 +571,15 @@ function StatsPage() {
             >
               Player
             </button>
-            <button
-              type="button"
-              className={`stats_section_tab${statsSection === 'spirit' ? ' stats_section_tab--active' : ''}`}
-              onClick={() => setStatsSection('spirit')}
-            >
-              Espiritu
-            </button>
+            {!isFootballTournament ? (
+              <button
+                type="button"
+                className={`stats_section_tab${statsSection === 'spirit' ? ' stats_section_tab--active' : ''}`}
+                onClick={() => setStatsSection('spirit')}
+              >
+                Espiritu
+              </button>
+            ) : null}
           </nav>
         </header>
 
@@ -575,30 +682,35 @@ function StatsPage() {
               <div className="stats_empty">No se encontro el torneo.</div>
             ) : (
               <>
-                <div className="stats_player_toolbar">
-                  {renderCategoryTabs(playerTabKey, setPlayerTabKey, 'Categorias del torneo (player)')}
-                  <div className="stats_player_scope">
-                    <label htmlFor="stats-player-scope-select" className="stats_player_scope_label">
-                      Partidos incluidos
-                    </label>
-                    <select
-                      id="stats-player-scope-select"
-                      className="stats_player_scope_select"
-                      value={playerStatsScope}
-                      onChange={(event) => setPlayerStatsScope(event.target.value)}
-                    >
-                      <option value="all">Todo el torneo</option>
-                      <option value="groups">Solo fase de grupos</option>
-                    </select>
+                {!isFootballTournament ? (
+                  <div className="stats_player_toolbar">
+                    {renderCategoryTabs(playerTabKey, setPlayerTabKey, 'Categorias del torneo (player)')}
+                    <div className="stats_player_scope">
+                      <label htmlFor="stats-player-scope-select" className="stats_player_scope_label">
+                        Partidos incluidos
+                      </label>
+                      <select
+                        id="stats-player-scope-select"
+                        className="stats_player_scope_select"
+                        value={playerStatsScope}
+                        onChange={(event) => setPlayerStatsScope(event.target.value)}
+                      >
+                        <option value="all">Todo el torneo</option>
+                        <option value="groups">Solo fase de grupos</option>
+                      </select>
+                    </div>
                   </div>
+                ) : (
+                  <p className="stats_player_football_hint">
+                    Ranking del torneo según eventos registrados en los partidos (goles y tarjetas).
+                  </p>
+                )}
 
-                </div>
-
-                {loadingTeams ? (
+                {loadingTeams && !isFootballTournament ? (
                   <div className="stats_empty">Cargando categorias del torneo...</div>
                 ) : teamsError ? (
                   <div className="stats_empty">{teamsError}</div>
-                ) : divisionOptions.length === 0 ? (
+                ) : !isFootballTournament && divisionOptions.length === 0 ? (
                   <div className="stats_empty">No hay equipos registrados para mostrar categorias.</div>
                 ) : playerStatsLoading ? (
                   <div className="stats_empty">Cargando estadisticas por jugador...</div>
@@ -609,24 +721,44 @@ function StatsPage() {
                     <table className="stats_player_table" aria-label="Estadisticas por jugador">
                       <thead>
                         <tr>
-                          <th className="stats_player_th stats_player_th--left">{playerHeaderBtn('player_name', 'Name')}</th>
-                          <th className="stats_player_th stats_player_th--left">{playerHeaderBtn('team_name', 'Team')}</th>
-                          <th className="stats_player_th stats_player_th--highlight">
-                            {playerHeaderBtn('total', 'Total')}
+                          <th className="stats_player_th stats_player_th--left">
+                            {playerHeaderBtn('player_name', 'Nombre')}
                           </th>
-                          <th className="stats_player_th">{playerHeaderBtn('assists', 'Assists')}</th>
-                          <th className="stats_player_th">{playerHeaderBtn('goals', 'Goals')}</th>
-                          <th className="stats_player_th">{playerHeaderBtn('games', 'Games')}</th>
-                          <th className="stats_player_th">{playerHeaderBtn('totGm', 'Tot/Gm')}</th>
-                          <th className="stats_player_th">{playerHeaderBtn('astGm', 'Ast/Gm')}</th>
-                          <th className="stats_player_th">{playerHeaderBtn('glsGm', 'Gls/Gm')}</th>
+                          <th className="stats_player_th stats_player_th--left">
+                            {playerHeaderBtn('team_name', 'Equipo')}
+                          </th>
+                          {isFootballTournament ? (
+                            <>
+                              <th className="stats_player_th stats_player_th--highlight">
+                                {playerHeaderBtn('goals', 'Goles')}
+                              </th>
+                              <th className="stats_player_th">{playerHeaderBtn('games', 'Partidos')}</th>
+                              <th className="stats_player_th">{playerHeaderBtn('glsGm', 'Gol/P')}</th>
+                              <th className="stats_player_th">{playerHeaderBtn('yellowcards', 'YC')}</th>
+                              <th className="stats_player_th">{playerHeaderBtn('redcards', 'RC')}</th>
+                            </>
+                          ) : (
+                            <>
+                              <th className="stats_player_th stats_player_th--highlight">
+                                {playerHeaderBtn('total', 'Total')}
+                              </th>
+                              <th className="stats_player_th">{playerHeaderBtn('assists', 'Assists')}</th>
+                              <th className="stats_player_th">{playerHeaderBtn('goals', 'Goals')}</th>
+                              <th className="stats_player_th">{playerHeaderBtn('games', 'Games')}</th>
+                              <th className="stats_player_th">{playerHeaderBtn('totGm', 'Tot/Gm')}</th>
+                              <th className="stats_player_th">{playerHeaderBtn('astGm', 'Ast/Gm')}</th>
+                              <th className="stats_player_th">{playerHeaderBtn('glsGm', 'Gls/Gm')}</th>
+                            </>
+                          )}
                         </tr>
                       </thead>
                       <tbody>
                         {playerRows.length === 0 ? (
                           <tr>
-                            <td colSpan={9} className="stats_player_empty_cell">
-                              No hay eventos GOAL/AST registrados para este filtro.
+                            <td colSpan={isFootballTournament ? 7 : 9} className="stats_player_empty_cell">
+                              {isFootballTournament
+                                ? 'No hay eventos de fútbol registrados en este torneo.'
+                                : 'No hay eventos GOAL/AST registrados para este filtro.'}
                             </td>
                           </tr>
                         ) : (
@@ -653,13 +785,25 @@ function StatsPage() {
                                   </Link>
                                 </span>
                               </td>
-                              <td className="stats_player_td stats_player_td--highlight">{row.total}</td>
-                              <td className="stats_player_td">{row.assists}</td>
-                              <td className="stats_player_td">{row.goals}</td>
-                              <td className="stats_player_td">{row.games}</td>
-                              <td className="stats_player_td">{fmt2(row.totGm)}</td>
-                              <td className="stats_player_td">{fmt2(row.astGm)}</td>
-                              <td className="stats_player_td">{fmt2(row.glsGm)}</td>
+                              {isFootballTournament ? (
+                                <>
+                                  <td className="stats_player_td stats_player_td--highlight">{row.goals}</td>
+                                  <td className="stats_player_td">{row.games}</td>
+                                  <td className="stats_player_td">{fmt2(row.glsGm)}</td>
+                                  <td className="stats_player_td">{row.yellowcards}</td>
+                                  <td className="stats_player_td">{row.redcards}</td>
+                                </>
+                              ) : (
+                                <>
+                                  <td className="stats_player_td stats_player_td--highlight">{row.total}</td>
+                                  <td className="stats_player_td">{row.assists}</td>
+                                  <td className="stats_player_td">{row.goals}</td>
+                                  <td className="stats_player_td">{row.games}</td>
+                                  <td className="stats_player_td">{fmt2(row.totGm)}</td>
+                                  <td className="stats_player_td">{fmt2(row.astGm)}</td>
+                                  <td className="stats_player_td">{fmt2(row.glsGm)}</td>
+                                </>
+                              )}
                             </tr>
                           ))
                         )}
@@ -687,8 +831,9 @@ function StatsPage() {
             {renderDivisionSelector()}
 
 
-            <section className="stats_grid">
+            <section className={`stats_grid${isFootballTournament ? ' stats_grid--football' : ''}`}>
               {groupedTables.map((groupData) => {
+                const standingsColCount = isFootballTournament ? 10 : 8;
                 const rowsToRender = [...groupData.standingsRows];
                 while (rowsToRender.length < MIN_ROWS_PER_GROUP) {
                   rowsToRender.push(null);
@@ -697,9 +842,23 @@ function StatsPage() {
                 return (
                   <article key={groupData.groupName} className="stats_table_card stats_standings_card">
                     <table className="stats_table stats_standings_table" aria-label={groupData.groupName}>
+                      {isFootballTournament ? (
+                        <colgroup>
+                          <col className="stats_football_col_rank" />
+                          <col className="stats_football_col_team" />
+                          <col className="stats_football_col_stat" />
+                          <col className="stats_football_col_stat" />
+                          <col className="stats_football_col_stat" />
+                          <col className="stats_football_col_stat" />
+                          <col className="stats_football_col_stat" />
+                          <col className="stats_football_col_stat" />
+                          <col className="stats_football_col_stat" />
+                          <col className="stats_football_col_stat" />
+                        </colgroup>
+                      ) : null}
                       <thead>
                         <tr>
-                          <th colSpan={8} className="stats_table_group_title">
+                          <th colSpan={standingsColCount} className="stats_table_group_title">
                             {groupData.groupName}
                           </th>
                         </tr>
@@ -708,10 +867,12 @@ function StatsPage() {
                           <th className="stats_standings_th stats_standings_th--team">Equipo</th>
                           <th className="stats_standings_th">PG</th>
                           <th className="stats_standings_th">W</th>
+                          {isFootballTournament ? <th className="stats_standings_th">D</th> : null}
                           <th className="stats_standings_th">L</th>
                           <th className="stats_standings_th">GF</th>
                           <th className="stats_standings_th">GA</th>
                           <th className="stats_standings_th">GD</th>
+                          {isFootballTournament ? <th className="stats_standings_th">Pts</th> : null}
                         </tr>
                       </thead>
                       <tbody>
@@ -721,7 +882,7 @@ function StatsPage() {
                               key={`${groupData.groupName}-empty-${index}`}
                               className="stats_standings_row--placeholder"
                             >
-                              <td colSpan={8} />
+                              <td colSpan={standingsColCount} />
                             </tr>
                           ) : (
                             <tr key={row.id} className={standingsRowStripeClass(row.rank)}>
@@ -748,10 +909,22 @@ function StatsPage() {
                               </td>
                               <td>{row.pg}</td>
                               <td>{row.wins}</td>
+                              {isFootballTournament ? (
+                                <td>{Math.max(0, (Number(row.pg) || 0) - (Number(row.wins) || 0) - (Number(row.losses) || 0))}</td>
+                              ) : null}
                               <td>{row.losses}</td>
                               <td>{row.gf}</td>
                               <td>{row.ga}</td>
                               <td>{row.gd}</td>
+                              {isFootballTournament ? (
+                                <td>
+                                  {(Number(row.wins) || 0) * 3 +
+                                    Math.max(
+                                      0,
+                                      (Number(row.pg) || 0) - (Number(row.wins) || 0) - (Number(row.losses) || 0)
+                                    )}
+                                </td>
+                              ) : null}
                             </tr>
                           )
                         )}
@@ -763,7 +936,9 @@ function StatsPage() {
             </section>
             <footer className="stats_standings_meta stats_standings_meta--below_grid" aria-label="Leyenda y clasificación playoff">
               <p className="stats_standings_legend">
-                PG — Partidos jugados | W — Victorias | L — Derrotas | GF — Goles a favor | GA — Goles en contra | GD — Diferencia de gol.
+                PG — Partidos jugados | W — Victorias
+                {isFootballTournament ? ' | D — Empates | Pts — Puntos' : ''}
+                {' '}| L — Derrotas | GF — Goles a favor | GA — Goles en contra | GD — Diferencia de gol.
                 Empate en victorias: desempate por enfrentamientos directos en fase de grupos; si no hubo esos partidos, por diferencia de goles.
               </p>
               <div className="stats_standings_continue">

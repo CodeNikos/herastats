@@ -18,18 +18,30 @@ class TournamentConfig {
     await pool.query(query);
     await pool.query('ALTER TABLE torneo DROP COLUMN IF EXISTS timeouts');
     await pool.query('ALTER TABLE torneo DROP COLUMN IF EXISTS timeout_dur');
+    await pool.query(`
+      ALTER TABLE torneo
+      ADD COLUMN IF NOT EXISTS sport_id INTEGER
+    `);
   }
 
   static async create(configData) {
     try {
-      const { name, year, country, location, image_url, created_by } = configData;
+      const { name, year, country, location, image_url, created_by, sport_id } = configData;
       
       const query = `
-        INSERT INTO torneo (name, year, country, location, image_url, created_by) 
-        VALUES ($1, $2, $3, $4, $5, $6) 
-        RETURNING torneo_id, name, year, country, location, image_url, created_by, created_at
+        INSERT INTO torneo (name, year, country, location, image_url, created_by, sport_id) 
+        VALUES ($1, $2, $3, $4, $5, $6, $7) 
+        RETURNING torneo_id, name, year, country, location, image_url, created_by, sport_id, created_at
       `;
-      const result = await pool.query(query, [name, year, country, location, image_url, created_by]);
+      const result = await pool.query(query, [
+        name,
+        year,
+        country,
+        location,
+        image_url,
+        created_by,
+        sport_id || null
+      ]);
       return result.rows[0];
     } catch (error) {
       console.error('Error en TournamentConfig.create:', error);
@@ -41,8 +53,10 @@ class TournamentConfig {
     try {
       const query = `
         SELECT DISTINCT t.torneo_id, t.name, t.year, t.country, t.location, t.image_url, t.created_by, t.created_at,
+          t.sport_id, s.name AS sport_name,
           (SELECT MIN(g.game_date) FROM game g WHERE g.torneo_id = t.torneo_id) AS first_game_date
         FROM torneo t
+        LEFT JOIN sports s ON s.sport_id = t.sport_id
         INNER JOIN tournament_members tm ON tm.torneo_id = t.torneo_id
         WHERE tm.user_id = $1
         ORDER BY t.created_at DESC
@@ -71,8 +85,10 @@ class TournamentConfig {
     try {
       const query = `
         SELECT t.torneo_id, t.name, t.year, t.country, t.location, t.image_url, t.created_by, t.created_at,
+          t.sport_id, s.name AS sport_name,
           (SELECT MIN(g.game_date) FROM game g WHERE g.torneo_id = t.torneo_id) AS first_game_date
         FROM torneo t
+        LEFT JOIN sports s ON s.sport_id = t.sport_id
         WHERE t.created_by = $1 
         ORDER BY t.created_at DESC
       `;
@@ -90,8 +106,10 @@ class TournamentConfig {
   static async findById(torneoId) {
     try {
       const query = `
-        SELECT torneo_id, name, year, country, location, image_url, created_by, created_at
-        FROM torneo 
+        SELECT t.torneo_id, t.name, t.year, t.country, t.location, t.image_url, t.created_by, t.created_at,
+               t.sport_id, s.name AS sport_name
+        FROM torneo t
+        LEFT JOIN sports s ON s.sport_id = t.sport_id
         WHERE torneo_id = $1
       `;
       const result = await pool.query(query, [torneoId]);
@@ -130,8 +148,10 @@ class TournamentConfig {
     try {
       const query = `
         SELECT t.torneo_id, t.name, t.year, t.country, t.location, t.image_url, t.created_by, t.created_at,
+          t.sport_id, s.name AS sport_name,
           (SELECT MIN(g.game_date) FROM game g WHERE g.torneo_id = t.torneo_id) AS first_game_date
         FROM torneo t
+        LEFT JOIN sports s ON s.sport_id = t.sport_id
         ORDER BY t.created_at DESC
       `;
       const result = await pool.query(query);
