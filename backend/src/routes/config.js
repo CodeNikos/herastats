@@ -12,6 +12,7 @@ const {
   getTeams,
   createTeam,
   updateTeam,
+  saveTeamGroups,
   deleteTeam,
   getGames,
   getBracket,
@@ -86,6 +87,7 @@ router.get('/tournament/:id/phases', getPhases);
 router.post('/tournament/:id/phases', authenticate, requireTournamentAdmin, requireTournamentEditAccess, savePhases);
 // Rutas de equipos
 router.get('/tournament/:id/teams', getTeams);
+router.put('/tournament/:id/team-groups', authenticate, requireTournamentAdmin, requireTournamentEditAccess, saveTeamGroups);
 router.post('/tournament/:id/teams', authenticate, requireTournamentAdmin, requireTournamentEditAccess, createTeam);
 router.put('/tournament/:id/teams/:teamId', authenticate, requireTournamentAdmin, requireTournamentEditAccess, updateTeam);
 router.delete('/tournament/:id/teams/:teamId', authenticate, requireTournamentAdmin, requireTournamentEditAccess, deleteTeam);

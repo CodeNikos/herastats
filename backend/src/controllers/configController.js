@@ -631,19 +631,19 @@ const updateTeam = async (req, res) => {
       });
     }
 
-    if (name !== undefined && !String(name).trim()) {
-      return res.status(400).json({
-        success: false,
-        message: 'El nombre del equipo no puede estar vacío'
-      });
+    const payload = {};
+    if (name !== undefined) {
+      if (!String(name).trim()) {
+        return res.status(400).json({
+          success: false,
+          message: 'El nombre del equipo no puede estar vacío'
+        });
+      }
+      payload.name = String(name).trim();
     }
-
-    const payload = {
-      name: name !== undefined ? String(name).trim() : undefined,
-      division: division !== undefined ? String(division).trim() : undefined,
-      group: group !== undefined ? String(group).trim() : undefined,
-      url_imagen: url_imagen !== undefined ? url_imagen : undefined
-    };
+    if (division !== undefined) payload.division = String(division).trim();
+    if (group !== undefined) payload.group = String(group).trim();
+    if (url_imagen !== undefined) payload.url_imagen = url_imagen;
     if (Object.prototype.hasOwnProperty.call(req.body || {}, 'representative_email')) {
       const v = representative_email;
       payload.representative_email =
@@ -674,6 +674,59 @@ const updateTeam = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Error al actualizar el equipo',
+      error: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+};
+
+/**
+ * Guardar asignación de grupos (bulk) para equipos de un torneo
+ * PUT /api/config/tournament/:id/team-groups
+ */
+const saveTeamGroups = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const items = req.body?.assignments ?? req.body?.items ?? req.body;
+
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: 'ID del torneo es requerido'
+      });
+    }
+
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Se requiere al menos una asignación de grupo'
+      });
+    }
+
+    const normalized = items.map((item, index) => {
+      const teamId = item?.teamId ?? item?.team_id ?? item?.id;
+      const group = item?.group;
+      if (teamId == null || String(teamId).trim() === '') {
+        throw new Error(`Asignación ${index + 1}: teamId requerido`);
+      }
+      if (group == null || String(group).trim() === '') {
+        throw new Error(`Asignación ${index + 1}: group requerido`);
+      }
+      return { teamId, group: String(group).trim() };
+    });
+
+    const teams = await Team.bulkUpdateGroups(id, normalized);
+
+    return res.json({
+      success: true,
+      message: 'Grupos guardados exitosamente',
+      data: { teams }
+    });
+  } catch (error) {
+    console.error('Error en saveTeamGroups:', error);
+    const isValidation = /requerido|inválido|no encontrado/i.test(String(error.message || ''));
+    return res.status(isValidation ? 400 : 500).json({
+      success: false,
+      message: isValidation ? error.message : 'Error al guardar los grupos',
       error: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
@@ -3284,6 +3337,7 @@ module.exports = {
   getTeams,
   createTeam,
   updateTeam,
+  saveTeamGroups,
   deleteTeam,
   getGames,
   getBracket,

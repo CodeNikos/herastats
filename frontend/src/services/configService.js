@@ -166,16 +166,10 @@ export const configService = {
    */
   async saveTeamGroups(tournamentId, items) {
     try {
-      const requests = items.map((item) =>
-        api.put(`/config/tournament/${tournamentId}/teams/${item.teamId}`, { group: item.group })
-      );
-      const responses = await Promise.all(requests);
-      return {
-        success: true,
-        data: {
-          teams: responses.map((response) => response.data?.data?.team).filter(Boolean)
-        }
-      };
+      const response = await api.put(`/config/tournament/${tournamentId}/team-groups`, {
+        assignments: items
+      });
+      return response.data;
     } catch (error) {
       throw error;
     }

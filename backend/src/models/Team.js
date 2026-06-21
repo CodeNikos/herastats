@@ -99,43 +99,116 @@ class Team {
   }
 
   static async update(teamId, torneoId, teamData) {
-    const { name, division, group, url_imagen, representative_email, representative_name } = teamData;
-    const hasRepEmail = Object.prototype.hasOwnProperty.call(teamData, 'representative_email');
-    const hasRepName = Object.prototype.hasOwnProperty.call(teamData, 'representative_name');
-    const repEmailNorm =
-      representative_email != null && String(representative_email).trim() !== ''
-        ? String(representative_email).trim()
-        : null;
-    const repNameNorm =
-      representative_name != null && String(representative_name).trim() !== ''
-        ? String(representative_name).trim()
-        : null;
+    const sets = [];
+    const values = [teamId, torneoId];
+    let paramIndex = 3;
+
+    if (Object.prototype.hasOwnProperty.call(teamData, 'name')) {
+      sets.push(`name = $${paramIndex++}`);
+      values.push(
+        teamData.name != null && String(teamData.name).trim() !== ''
+          ? String(teamData.name).trim()
+          : null
+      );
+    }
+    if (Object.prototype.hasOwnProperty.call(teamData, 'division')) {
+      sets.push(`division = $${paramIndex++}`);
+      values.push(
+        teamData.division != null && String(teamData.division).trim() !== ''
+          ? String(teamData.division).trim()
+          : null
+      );
+    }
+    if (Object.prototype.hasOwnProperty.call(teamData, 'group')) {
+      sets.push(`"group" = $${paramIndex++}`);
+      values.push(
+        teamData.group != null && String(teamData.group).trim() !== ''
+          ? String(teamData.group).trim()
+          : null
+      );
+    }
+    if (Object.prototype.hasOwnProperty.call(teamData, 'url_imagen')) {
+      sets.push(`url_imagen = $${paramIndex++}`);
+      values.push(teamData.url_imagen || null);
+    }
+    if (Object.prototype.hasOwnProperty.call(teamData, 'representative_email')) {
+      sets.push(`representative_email = $${paramIndex++}`);
+      values.push(
+        teamData.representative_email != null && String(teamData.representative_email).trim() !== ''
+          ? String(teamData.representative_email).trim()
+          : null
+      );
+    }
+    if (Object.prototype.hasOwnProperty.call(teamData, 'representative_name')) {
+      sets.push(`representative_name = $${paramIndex++}`);
+      values.push(
+        teamData.representative_name != null && String(teamData.representative_name).trim() !== ''
+          ? String(teamData.representative_name).trim()
+          : null
+      );
+    }
+
+    if (sets.length === 0) {
+      return this.findByIdAndTorneo(teamId, torneoId);
+    }
+
     const query = `
       UPDATE team
-      SET
-        name = COALESCE($3, name),
-        division = COALESCE($4, division),
-        "group" = COALESCE($5, "group"),
-        url_imagen = COALESCE($6, url_imagen),
-        representative_email = CASE WHEN $7 THEN $8 ELSE representative_email END,
-        representative_name = CASE WHEN $9 THEN $10 ELSE representative_name END
+      SET ${sets.join(', ')}
       WHERE team_id = $1 AND torneo_id = $2
       RETURNING team_id, torneo_id, name, division, "group", url_imagen,
                 representative_email, representative_name, created_at
     `;
-    const result = await pool.query(query, [
-      teamId,
-      torneoId,
-      name,
-      division,
-      group,
-      url_imagen,
-      hasRepEmail,
-      repEmailNorm,
-      hasRepName,
-      repNameNorm
-    ]);
+    const result = await pool.query(query, values);
     return result.rows[0] || null;
+  }
+
+  /**
+   * Actualiza solo el campo "group" de varios equipos del torneo en una transacción.
+   * @param {number|string} torneoId
+   * @param {Array<{ teamId: number|string, group: string|null|undefined }>} assignments
+   */
+  static async bulkUpdateGroups(torneoId, assignments) {
+    if (!Array.isArray(assignments) || assignments.length === 0) {
+      return [];
+    }
+
+    const client = await pool.connect();
+    const updated = [];
+    try {
+      await client.query('BEGIN');
+      for (const item of assignments) {
+        const teamId = Number(item.teamId);
+        if (!Number.isFinite(teamId) || teamId <= 0) {
+          throw new Error(`teamId inválido: ${item.teamId}`);
+        }
+        const groupValue =
+          item.group != null && String(item.group).trim() !== ''
+            ? String(item.group).trim()
+            : null;
+        const result = await client.query(
+          `
+            UPDATE team
+            SET "group" = $3
+            WHERE team_id = $1 AND torneo_id = $2
+            RETURNING team_id, torneo_id, name, division, "group", url_imagen,
+                      representative_email, representative_name, created_at
+          `,
+          [teamId, torneoId, groupValue]
+        );
+        if (!result.rows[0]) {
+          throw new Error(`Equipo ${teamId} no encontrado en el torneo ${torneoId}`);
+        }
+        updated.push(result.rows[0]);
+      }
+      await client.query('COMMIT');
+      return updated;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   static async findByIdAndTorneo(teamId, torneoId) {
