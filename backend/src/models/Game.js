@@ -863,6 +863,49 @@ class Game {
     return { local_goals: lgE, visitor_goals: vgE };
   }
 
+  /**
+   * Marcadores de varios partidos en una sola conexión (reduce presión sobre el pool en brackets).
+   * @param {number} torneoId
+   * @param {number[]} gameIds
+   * @returns {Promise<Record<string, { local_goals: number, visitor_goals: number }>>}
+   */
+  static async computeGoalTotalsBatchForTournament(torneoId, gameIds) {
+    const tid = Number(torneoId);
+    const uniqueIds = [
+      ...new Set(
+        (gameIds || [])
+          .map((id) => Number(id))
+          .filter((id) => Number.isFinite(id) && id > 0)
+      )
+    ];
+    const result = {};
+    if (!Number.isFinite(tid) || tid <= 0 || uniqueIds.length === 0) {
+      return result;
+    }
+
+    const client = await pool.connect();
+    try {
+      for (const gameId of uniqueIds) {
+        const gameRes = await client.query(
+          `SELECT game_id, torneo_id, "local", visitor, local_score, visitor_score, estado
+           FROM game WHERE game_id = $1`,
+          [gameId]
+        );
+        const game = gameRes.rows[0];
+        if (!game || Number(game.torneo_id) !== tid) continue;
+        const totals = await this.computeGoalTotalsFromEvents(gameId, client);
+        const merged = this.resolveGoalTotalsForDisplay(game, totals);
+        result[String(gameId)] = {
+          local_goals: merged.local_goals,
+          visitor_goals: merged.visitor_goals
+        };
+      }
+      return result;
+    } finally {
+      client.release();
+    }
+  }
+
   /** Fase de grupos (phas_num=1 o nombre Groups/Grupo) — alineado con estadísticas de grupos. */
   static isGroupPhaseGameRow(row) {
     const phasNum = Number(row?.phas_num ?? row?.phase_num);

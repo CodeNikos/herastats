@@ -1,5 +1,7 @@
 import { api } from './authHttp';
 
+const goalTotalsInflight = new Map();
+
 export const configService = {
   /**
    * Crear una nueva configuración de torneo
@@ -388,12 +390,65 @@ export const configService = {
    * Suma de goles por equipo (eventos GOAL en BD) para el marcador en vivo.
    */
   async getGameGoalTotals(tournamentId, gameId) {
+    const key = `${String(tournamentId)}:${String(gameId)}`;
+    if (goalTotalsInflight.has(key)) {
+      return goalTotalsInflight.get(key);
+    }
+    const request = api
+      .get(`/config/tournament/${tournamentId}/games/${gameId}/goal-totals`)
+      .then((response) => response.data)
+      .finally(() => {
+        goalTotalsInflight.delete(key);
+      });
+    goalTotalsInflight.set(key, request);
     try {
-      const response = await api.get(`/config/tournament/${tournamentId}/games/${gameId}/goal-totals`);
-      return response.data;
+      return await request;
     } catch (error) {
       throw error;
     }
+  },
+
+  /**
+   * Marcadores en lote (brackets / calendario): una petición por hasta 100 partidos.
+   */
+  async getBatchGameGoalTotals(tournamentId, gameIds) {
+    const uniqueIds = [
+      ...new Set(
+        (gameIds || [])
+          .map((id) => String(id).trim())
+          .filter((id) => id !== '' && Number.isFinite(Number(id)) && Number(id) > 0)
+      )
+    ];
+    if (uniqueIds.length === 0) {
+      return { success: true, data: { totals: {} } };
+    }
+    if (uniqueIds.length === 1) {
+      const single = await this.getGameGoalTotals(tournamentId, uniqueIds[0]);
+      if (!single?.success || !single.data) return single;
+      return {
+        success: true,
+        data: {
+          totals: {
+            [uniqueIds[0]]: {
+              local_goals: single.data.local_goals,
+              visitor_goals: single.data.visitor_goals
+            }
+          }
+        }
+      };
+    }
+
+    const totals = {};
+    const chunkSize = 80;
+    for (let i = 0; i < uniqueIds.length; i += chunkSize) {
+      const chunk = uniqueIds.slice(i, i + chunkSize);
+      const response = await api.get(`/config/tournament/${tournamentId}/goal-totals`, {
+        params: { gameIds: chunk.join(',') }
+      });
+      const batch = response.data?.data?.totals || {};
+      Object.assign(totals, batch);
+    }
+    return { success: true, data: { totals } };
   },
 
   /**

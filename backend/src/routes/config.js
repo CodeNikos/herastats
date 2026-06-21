@@ -39,6 +39,7 @@ const {
   getGameTimeoutCounts,
   getTournamentPlacements,
   getGameGoalTotals,
+  getTournamentGoalTotalsBatch,
   getGamePlayerRank,
   getTournamentPlayerEventStats,
   downloadGameEventsTemplate,
@@ -93,6 +94,7 @@ router.put('/tournament/:id/teams/:teamId', authenticate, requireTournamentAdmin
 router.delete('/tournament/:id/teams/:teamId', authenticate, requireTournamentAdmin, requireTournamentEditAccess, deleteTeam);
 // Rutas de juegos
 router.get('/tournament/:id/games', getGames);
+router.get('/tournament/:id/goal-totals', getTournamentGoalTotalsBatch);
 router.get('/tournament/:id/placements', getTournamentPlacements);
 router.get('/tournament/:id/games/:gameId/goal-totals', getGameGoalTotals);
 router.get('/tournament/:id/games/:gameId/timeout-counts', getGameTimeoutCounts);

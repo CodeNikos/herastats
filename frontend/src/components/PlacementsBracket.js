@@ -591,6 +591,17 @@ const extractGameIdFromMatch = (match) => {
   return 0;
 };
 
+const collectGameIdsFromRoundsList = (roundList) => {
+  const ids = new Set();
+  for (const round of roundList || []) {
+    for (const match of round?.matches || []) {
+      const gid = extractGameIdFromMatch(match);
+      if (gid > 0) ids.add(gid);
+    }
+  }
+  return [...ids];
+};
+
 /**
  * Lista de filas de equipo + score; con `useGoalTotalsForScores` y `readOnly` el marcador viene de GET goal-totals,
  * salvo que `match.score` (fusionado con GET /games) difiera: entonces se prioriza la fila oficial del juego.
@@ -625,25 +636,34 @@ function PlacementsMatchTeamRowsWithScores({
   statsSlotFieldTitle = 'Puesto en el grupo (mismo orden que estadísticas). Ej. 1A = 1.º del A',
   /** Pool & Brackets (solo lectura): sin columna Loc./Vis.; nombres y banderas se resuelven igual que en Principal cuando hay slots 1A, W12… */
   isPoolBracketsPage = false,
-  useFootballCardStyle = false
+  useFootballCardStyle = false,
+  goalTotalsByGameId = null
 }) {
   const gameId = extractGameIdFromMatch(match);
+  const batchTotals = goalTotalsByGameId?.[String(gameId)] ?? goalTotalsByGameId?.[gameId];
+  const useBatchGoalTotals = Boolean(
+    useGoalTotalsForScores && readOnly && goalTotalsByGameId && gameId > 0
+  );
   const { localGoals, visitorGoals, loading, error, refetch } = useGameMatchScore(tournamentId, gameId, {
-    enabled: Boolean(useGoalTotalsForScores && readOnly && tournamentId && gameId > 0)
+    enabled: Boolean(useGoalTotalsForScores && readOnly && tournamentId && gameId > 0 && !useBatchGoalTotals)
   });
+  const resolvedLocalGoals = useBatchGoalTotals ? Number(batchTotals?.local_goals) || 0 : localGoals;
+  const resolvedVisitorGoals = useBatchGoalTotals ? Number(batchTotals?.visitor_goals) || 0 : visitorGoals;
+  const resolvedLoading = useBatchGoalTotals ? false : loading;
+  const resolvedError = useBatchGoalTotals ? null : error;
 
   useEffect(() => {
-    if (!useGoalTotalsForScores || !readOnly) return;
+    if (!useGoalTotalsForScores || !readOnly || useBatchGoalTotals) return;
     if (bracketReloadTick === 0 && scoresSyncNonce === 0) return;
     refetch();
-  }, [bracketReloadTick, scoresSyncNonce, readOnly, refetch, useGoalTotalsForScores]);
+  }, [bracketReloadTick, scoresSyncNonce, readOnly, refetch, useGoalTotalsForScores, useBatchGoalTotals]);
 
   useEffect(() => {
-    if (!useGoalTotalsForScores || !readOnly) return;
+    if (!useGoalTotalsForScores || !readOnly || useBatchGoalTotals) return;
     if (!isFinishedGameEstado(match.gameEstado)) return;
     if (!gameId) return;
     refetch();
-  }, [match.gameEstado, gameId, readOnly, refetch, useGoalTotalsForScores]);
+  }, [match.gameEstado, gameId, readOnly, refetch, useGoalTotalsForScores, useBatchGoalTotals]);
 
   const fbHome = getScoreField(match.score, 'home');
   const fbAway = getScoreField(match.score, 'away');
@@ -654,10 +674,10 @@ function PlacementsMatchTeamRowsWithScores({
   if (!useGoalTotalsForScores || !readOnly) {
     displayHome = fbHome;
     displayAway = fbAway;
-  } else if (error) {
+  } else if (resolvedError) {
     displayHome = fbHome;
     displayAway = fbAway;
-  } else if (!loading) {
+  } else if (!resolvedLoading) {
     const parseSide = (v) => {
       if (v == null || v === '') return NaN;
       const n = parseInt(String(v).trim(), 10);
@@ -666,8 +686,8 @@ function PlacementsMatchTeamRowsWithScores({
     const fhNum = parseSide(fbHome);
     const faNum = parseSide(fbAway);
     const dbBothNumeric = Number.isFinite(fhNum) && Number.isFinite(faNum);
-    const gl = Number(localGoals) || 0;
-    const gv = Number(visitorGoals) || 0;
+    const gl = Number(resolvedLocalGoals) || 0;
+    const gv = Number(resolvedVisitorGoals) || 0;
     /** Goal-totals / eventos primero; fila fusionada sólo rescata cuando ambos están en cero pero `game` ya tiene marcador */
     const totalsEmpty = gl === 0 && gv === 0;
     const dbHasScore =
@@ -1585,6 +1605,52 @@ function PlacementsBracket({
   const [scoresCanvasHydrateNonce, setScoresCanvasHydrateNonce] = useState(0);
   /** Solo lectura Pool: cada tick de polling refuerza GET goal-totals en las tarjetas. */
   const [poolReadOnlyPollNonce, setPoolReadOnlyPollNonce] = useState(0);
+  const [goalTotalsByGameId, setGoalTotalsByGameId] = useState(null);
+
+  useEffect(() => {
+    if (!useGoalTotalsForScores || !readOnly || !tournamentId) {
+      setGoalTotalsByGameId(null);
+      return undefined;
+    }
+
+    const gameIds = [
+      ...new Set([
+        ...collectGameIdsFromRoundsList(rounds),
+        ...collectGameIdsFromRoundsList(rankedRounds)
+      ])
+    ];
+
+    if (gameIds.length === 0) {
+      setGoalTotalsByGameId({});
+      return undefined;
+    }
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await configService.getBatchGameGoalTotals(tournamentId, gameIds);
+        if (cancelled) return;
+        setGoalTotalsByGameId(res?.data?.totals || {});
+      } catch (_) {
+        if (!cancelled) setGoalTotalsByGameId({});
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    tournamentId,
+    useGoalTotalsForScores,
+    readOnly,
+    rounds,
+    rankedRounds,
+    bracketReloadTick,
+    silentStandingsNonce,
+    scoresCanvasHydrateNonce,
+    poolScoresSyncEpoch,
+    poolReadOnlyPollNonce
+  ]);
 
   useEffect(() => {
     setSilentStandingsNonce(0);
@@ -4574,6 +4640,7 @@ function PlacementsBracket({
                             roundIndex={roundIndex}
                             readOnly={readOnly}
                             useGoalTotalsForScores={useGoalTotalsForScores}
+                            goalTotalsByGameId={goalTotalsByGameId}
                             bracketReloadTick={bracketReloadTick}
                             scoresSyncNonce={
                               silentStandingsNonce +
@@ -4789,6 +4856,7 @@ function PlacementsBracket({
                         roundIndex={roundIndex}
                         readOnly={readOnly}
                         useGoalTotalsForScores={useGoalTotalsForScores}
+                        goalTotalsByGameId={goalTotalsByGameId}
                         bracketReloadTick={bracketReloadTick}
                         scoresSyncNonce={
                           silentStandingsNonce +

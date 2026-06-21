@@ -2398,6 +2398,68 @@ const getGameGoalTotals = async (req, res) => {
   }
 };
 
+/**
+ * Marcadores en lote (brackets / calendario público).
+ * GET /api/config/tournament/:id/goal-totals?gameIds=1,2,3
+ */
+const getTournamentGoalTotalsBatch = async (req, res) => {
+  try {
+    const tournamentId = parseInt(req.params.id, 10);
+    const raw = String(req.query.gameIds || '').trim();
+
+    if (!Number.isFinite(tournamentId) || tournamentId <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'ID de torneo inválido'
+      });
+    }
+
+    if (!raw) {
+      return res.status(400).json({
+        success: false,
+        message: 'Parámetro gameIds requerido'
+      });
+    }
+
+    const gameIds = [
+      ...new Set(
+        raw
+          .split(/[,;\s]+/)
+          .map((part) => parseInt(String(part).trim(), 10))
+          .filter((id) => Number.isFinite(id) && id > 0)
+      )
+    ];
+
+    if (gameIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Ningún gameId válido en gameIds'
+      });
+    }
+
+    if (gameIds.length > 100) {
+      return res.status(400).json({
+        success: false,
+        message: 'Máximo 100 partidos por solicitud'
+      });
+    }
+
+    const totals = await Game.computeGoalTotalsBatchForTournament(tournamentId, gameIds);
+
+    return res.json({
+      success: true,
+      data: { totals }
+    });
+  } catch (error) {
+    console.error('Error en getTournamentGoalTotalsBatch:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error al obtener marcadores del torneo',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
 const httpGameEventError = (statusCode, message) => {
   const e = new Error(message);
   e.statusCode = statusCode;
@@ -3364,6 +3426,7 @@ module.exports = {
   getGameTimeoutCounts,
   getTournamentPlacements,
   getGameGoalTotals,
+  getTournamentGoalTotalsBatch,
   getGamePlayerRank,
   getTournamentPlayerEventStats,
   downloadGameEventsTemplate,

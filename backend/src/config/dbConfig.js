@@ -55,11 +55,27 @@ function parseSslOption() {
   return undefined;
 }
 
+function parseIntSafe(raw, fallback) {
+  const n = Number(raw);
+  return Number.isFinite(n) ? Math.floor(n) : fallback;
+}
+
+function getPoolRuntimeOptions() {
+  const isProd = process.env.NODE_ENV === 'production';
+  return {
+    max: parseIntSafe(process.env.DB_POOL_MAX, isProd ? 5 : 10),
+    idleTimeoutMillis: parseIntSafe(process.env.DB_POOL_IDLE_MS, 30000),
+    connectionTimeoutMillis: parseIntSafe(process.env.DB_POOL_CONNECT_TIMEOUT_MS, 10000),
+    allowExitOnIdle: true
+  };
+}
+
 function getPoolConfig() {
   const databaseUrl = String(process.env.DATABASE_URL || '').trim();
+  const poolOptions = getPoolRuntimeOptions();
 
   if (databaseUrl) {
-    const config = { connectionString: databaseUrl };
+    const config = { connectionString: databaseUrl, ...poolOptions };
     const ssl = parseSslOption();
     if (ssl !== undefined) {
       config.ssl = ssl;
@@ -83,7 +99,8 @@ function getPoolConfig() {
     port: Number(process.env.DB_PORT) || 5432,
     database,
     user,
-    password: process.env.DB_PASSWORD
+    password: process.env.DB_PASSWORD,
+    ...poolOptions
   };
 
   const ssl = parseSslOption();
@@ -96,6 +113,7 @@ function getPoolConfig() {
 
 module.exports = {
   getPoolConfig,
+  getPoolRuntimeOptions,
   parseSslOption,
   isLocalDbHost,
   resolveDbHost
