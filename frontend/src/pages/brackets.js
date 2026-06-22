@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useLocation, useParams } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import Navbar from '../components/navbar';
+import { useResolvedTournamentId } from '../hooks/useResolvedTournamentId';
 import TournamentBracket from '../components/TournamentBracket';
 import PlacementsBracket from '../components/PlacementsBracket';
 import { useTournamentSport } from '../hooks/useTournamentSport';
@@ -168,11 +169,8 @@ function BestThirdPlacePanel({ tournamentId, division }) {
 }
 
 function BracketsPage() {
-  const { id: routeTournamentId } = useParams();
   const location = useLocation();
-  const queryParams = new URLSearchParams(location.search);
-  const queryTournamentId = queryParams.get('tournamentId');
-  const tournamentId = routeTournamentId || queryTournamentId;
+  const tournamentId = useResolvedTournamentId();
   const isPoolMode = location.pathname.startsWith('/poolbrackets');
   const [selectedDivision, setSelectedDivision] = useState('');
   const [activeBracketView, setActiveBracketView] = useState('all');

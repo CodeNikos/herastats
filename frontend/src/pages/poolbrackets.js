@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
-import { useLocation, useParams, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import Navbar from '../components/navbar';
 import SeoHead from '../components/SeoHead';
 import { DEFAULT_SITE_DESCRIPTION, DEFAULT_SITE_TITLE } from '../config/siteConfig';
+import { useResolvedTournamentId } from '../hooks/useResolvedTournamentId';
 import TournamentBracket from '../components/TournamentBracket';
 import PlacementsBracket from '../components/PlacementsBracket';
 import { useTournamentSport } from '../hooks/useTournamentSport';
@@ -25,12 +26,9 @@ const TEAM_FALLBACK_IMAGE = '/Hera_logo.png';
 /** Cada tarjeta de partido (PlacementsBracket) muestra fecha, hora y ubicación alineadas en la misma fila. */
 
 function PoolBracketsPage() {
-  const { id: routeTournamentId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
-  const queryParams = new URLSearchParams(location.search);
-  const queryTournamentId = queryParams.get('tournamentId');
-  const tournamentId = routeTournamentId || queryTournamentId;
+  const tournamentId = useResolvedTournamentId();
   const {
     isFootballTournament,
     tournamentName: tournamentDisplayName,

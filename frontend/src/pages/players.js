@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useLocation, useParams } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import Navbar from '../components/navbar';
 import { configService } from '../services/configService';
+import { useResolvedTournamentId, useTournamentPageReset } from '../hooks/useResolvedTournamentId';
 import './players.css';
 
 function normalizeText(value) {
@@ -26,10 +27,7 @@ function getRowValue(row, keys) {
 }
 
 function Players() {
-  const { id: routeTournamentId } = useParams();
-  const location = useLocation();
-  const queryTournamentId = new URLSearchParams(location.search).get('tournamentId');
-  const tournamentId = routeTournamentId || queryTournamentId;
+  const tournamentId = useResolvedTournamentId();
 
   const [teams, setTeams] = useState([]);
   const [loadingTeams, setLoadingTeams] = useState(true);
@@ -39,6 +37,18 @@ function Players() {
   const [loadingPlayers, setLoadingPlayers] = useState(true);
   const [playersError, setPlayersError] = useState('');
   const [message, setMessage] = useState({ type: '', text: '' });
+
+  const resetPlayersState = useCallback(() => {
+    setTeams([]);
+    setPlayers([]);
+    setTeamsError('');
+    setPlayersError('');
+    setLoadingTeams(true);
+    setLoadingPlayers(true);
+    setMessage({ type: '', text: '' });
+  }, []);
+
+  useTournamentPageReset(tournamentId, resetPlayersState);
 
   const [manualPlayer, setManualPlayer] = useState({
     playerNumber: '',

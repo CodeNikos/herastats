@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useLocation, useParams } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Navbar from '../components/navbar';
 import { configService } from '../services/configService';
+import { useResolvedTournamentId, useTournamentPageReset } from '../hooks/useResolvedTournamentId';
 import './groupsconfig.css';
 
 const DIVISION_OPTIONS = ['Open', 'Femenino', 'Mixto', 'Open Jr', 'Fem Jr', 'Mixto Jr'];
@@ -41,10 +41,7 @@ const sortTeamsByName = (items) =>
   );
 
 function CalendarConfig() {
-  const { id: routeTournamentId } = useParams();
-  const location = useLocation();
-  const queryTournamentId = new URLSearchParams(location.search).get('tournamentId');
-  const tournamentId = routeTournamentId || queryTournamentId;
+  const tournamentId = useResolvedTournamentId();
 
   const [teams, setTeams] = useState([]);
   const [loadingTeams, setLoadingTeams] = useState(true);
@@ -54,6 +51,16 @@ function CalendarConfig() {
   const [assignments, setAssignments] = useState({});
   const [savingGroups, setSavingGroups] = useState(false);
   const [saveMessage, setSaveMessage] = useState({ type: '', text: '' });
+
+  const resetGroupsState = useCallback(() => {
+    setTeams([]);
+    setTeamsError('');
+    setAssignments({});
+    setSaveMessage({ type: '', text: '' });
+    setLoadingTeams(true);
+  }, []);
+
+  useTournamentPageReset(tournamentId, resetGroupsState);
 
   useEffect(() => {
     const loadTeams = async () => {

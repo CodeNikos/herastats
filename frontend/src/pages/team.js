@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useLocation, useParams } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Navbar from '../components/navbar';
 import { configService } from '../services/configService';
+import { useResolvedTournamentId, useTournamentPageReset } from '../hooks/useResolvedTournamentId';
 import './team.css';
 
 const DIVISION_OPTIONS = ['Open', 'Femenino', 'Mixto', 'Open Jr', 'Fem Jr', 'Mixto Jr'];
@@ -16,10 +16,7 @@ function normalizeDivision(value) {
 }
 
 function Team() {
-  const { id: routeTournamentId } = useParams();
-  const location = useLocation();
-  const queryTournamentId = new URLSearchParams(location.search).get('tournamentId');
-  const tournamentId = routeTournamentId || queryTournamentId;
+  const tournamentId = useResolvedTournamentId();
 
   const [teams, setTeams] = useState([]);
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -39,6 +36,17 @@ function Team() {
   const [message, setMessage] = useState({ type: '', text: '' });
   const [loadingTeams, setLoadingTeams] = useState(true);
   const [teamsError, setTeamsError] = useState('');
+
+  const resetTeamsState = useCallback(() => {
+    setTeams([]);
+    setTeamsError('');
+    setLoadingTeams(true);
+    setEditingTeamId(null);
+    setIsAddOpen(false);
+    setMessage({ type: '', text: '' });
+  }, []);
+
+  useTournamentPageReset(tournamentId, resetTeamsState);
 
   const totalDivisions = useMemo(
     () => new Set(teams.map((team) => normalizeDivision(team.division))).size,

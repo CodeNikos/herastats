@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Link, useLocation, useParams } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import Navbar from '../components/navbar';
 import SeoHead from '../components/SeoHead';
 import { DEFAULT_SITE_DESCRIPTION, DEFAULT_SITE_TITLE } from '../config/siteConfig';
 import { configService } from '../services/configService';
+import { useResolvedTournamentId, useTournamentPageReset } from '../hooks/useResolvedTournamentId';
 import { HERASTATS_GAMES_CHANGED_STORAGE, HERASTATS_TOURNAMENT_COHERENCE, normalizeTournamentIdForCoherence } from '../utils/tournamentSync';
 import {
   buildGroupStandingsRows,
@@ -142,10 +143,8 @@ function sortPlayerRows(rows, sortKey, asc) {
 }
 
 function StatsPage() {
-  const { id: routeTournamentId } = useParams();
   const location = useLocation();
-  const queryTournamentId = new URLSearchParams(location.search).get('tournamentId');
-  const tournamentId = routeTournamentId || queryTournamentId;
+  const tournamentId = useResolvedTournamentId();
 
   const [teams, setTeams] = useState([]);
   const [tournamentGames, setTournamentGames] = useState([]);
@@ -172,6 +171,22 @@ function StatsPage() {
 
   /** Tras FINALIZAR en live u otras pestañas (storage): mismo torneo debe recargar equipos/partidos/tablas player/espíritu. */
   const [catalogRefreshNonce, setCatalogRefreshNonce] = useState(0);
+
+  const resetCatalogState = useCallback(() => {
+    setTeams([]);
+    setTournamentGames([]);
+    setTournamentSportId(null);
+    setTournamentSportName('');
+    setPlayerRowsRaw([]);
+    setSpiritRows([]);
+    setTeamsError('');
+    setPlayerStatsError('');
+    setSpiritStatsError('');
+    setLoadingTeams(true);
+    setCatalogRefreshNonce(0);
+  }, []);
+
+  useTournamentPageReset(tournamentId, resetCatalogState);
 
   useEffect(() => {
     setCatalogRefreshNonce(0);

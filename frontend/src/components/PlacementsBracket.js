@@ -35,7 +35,7 @@ const TEAM_FALLBACK_IMAGE = '/Hera_logo.png';
 const BRACKET_REFERENCE_PHASE_COUNT = 3;
 
 /**
- * Regla base homogénea para layout de fútbol (torneo_id / sport_id = 2).
+ * Regla base homogénea para layout de fútbol (sport_id = fútbol).
  */
 const FOOTBALL_FIXED_LAYOUT_BLANK = Object.freeze({
   gap: '12px',
@@ -232,7 +232,7 @@ function getFootballRoundFallbackLayout(
 }
 
 /**
- * Layout según conectores del partido — exclusivo fútbol (torneo_id / sport_id = 2).
+ * Layout según conectores del partido — exclusivo fútbol (sport_id = fútbol).
  * Usa `FOOTBALL_CONNECTOR_LAYOUT_BY_PHASE_CONFIG` o `_POOL` según la página.
  */
 function footballLayoutFromPhaseEvaluation(

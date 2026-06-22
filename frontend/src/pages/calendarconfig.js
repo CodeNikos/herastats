@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation, useParams } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as XLSX from 'xlsx';
 import Navbar from '../components/navbar';
 import { configService } from '../services/configService';
 import { broadcastTournamentCoherenceChanged } from '../utils/tournamentSync';
 import { isFootballSport } from '../utils/tournamentSport';
+import { useResolvedTournamentId, useTournamentPageReset } from '../hooks/useResolvedTournamentId';
 import './calendarconfig.css';
 
 const TEAM_FALLBACK_IMAGE = '/Hera_logo.png';
@@ -116,10 +116,7 @@ const mapDbGameToUi = (game) => ({
 });
 
 function CalendarConfigPage() {
-  const { id: routeTournamentId } = useParams();
-  const location = useLocation();
-  const queryTournamentId = new URLSearchParams(location.search).get('tournamentId');
-  const tournamentId = routeTournamentId || queryTournamentId;
+  const tournamentId = useResolvedTournamentId();
 
   const [games, setGames] = useState([]);
   const [loadingGames, setLoadingGames] = useState(true);
@@ -155,6 +152,25 @@ function CalendarConfigPage() {
   const formCardRef = useRef(null);
   const fileInputRef = useRef(null);
   const knockoutFileInputRef = useRef(null);
+
+  const resetCalendarState = useCallback(() => {
+    setGames([]);
+    setTeams([]);
+    setPhases([]);
+    setTournament(null);
+    setGamesError('');
+    setTeamsError('');
+    setTournamentError('');
+    setPhasesError('');
+    setLoadingGames(true);
+    setLoadingTeams(true);
+    setLoadingPhases(true);
+    setLoadingTournament(true);
+    setGamesPage(1);
+    setEditingGameId(null);
+  }, []);
+
+  useTournamentPageReset(tournamentId, resetCalendarState);
 
   useEffect(() => {
     const loadTournament = async () => {
