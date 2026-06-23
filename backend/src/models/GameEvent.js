@@ -542,6 +542,12 @@ class GameEvent {
               ELSE 0
             END
           )::int AS goals,
+          SUM(
+            CASE
+              WHEN UPPER(TRIM(e.event_type)) = 'OWN_GOAL' THEN COALESCE(e.goals, 1)
+              ELSE 0
+            END
+          )::int AS own_goals,
           SUM(COALESCE(e.yellowcard, 0))::int AS yellowcards,
           SUM(COALESCE(e.redcard, 0))::int AS redcards,
           COUNT(DISTINCT e.game_id)::int AS games_played
@@ -561,6 +567,7 @@ class GameEvent {
         t.name AS team_name,
         t.url_imagen AS team_image,
         b.goals,
+        b.own_goals,
         0::int AS assists,
         b.games_played AS games,
         0::int AS callahans,

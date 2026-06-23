@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { IoArrowBackSharp, IoCalendarOutline, IoLocationOutline, IoPeopleOutline, IoFootballOutline, IoLayersOutline, IoPersonOutline, IoStatsChartOutline } from 'react-icons/io5';
+import { IoArrowBackSharp, IoCalendarOutline, IoLocationOutline, IoPeopleOutline, IoFootballOutline, IoLayersOutline, IoPersonOutline, IoFootball } from 'react-icons/io5';
 import { configService } from '../services/configService';
 import Navbar from '../components/navbar';
 import Noauth_Navbar from '../components/noauth_Navbar';
@@ -8,6 +8,7 @@ import SeoHead from '../components/SeoHead';
 import { DEFAULT_SITE_TITLE } from '../config/siteConfig';
 import { buildSportsOrganizationJsonLd } from '../utils/seoJsonLd';
 import { useAuth } from '../hooks/useAuth';
+import { isFootballSport } from '../utils/tournamentSport';
 import './tourn_home.css';
 
 function Tourn_home() {
@@ -23,6 +24,9 @@ function Tourn_home() {
     games: 0,
     players: 0,
     goals: 0,
+    yellowcards: 0,
+    redcards: 0,
+    ownGoals: 0,
     divisions: 0
   });
   const [loading, setLoading] = useState(true);
@@ -40,22 +44,51 @@ function Tourn_home() {
         setError(null);
         const response = await configService.getTournamentById(id);
         if (response.success && response.data?.tournament) {
-          setTournament(response.data.tournament);
+          const tournamentData = response.data.tournament;
+          setTournament(tournamentData);
+          const isFootballTournament = isFootballSport({
+            sport_id: tournamentData.sport_id,
+            sport_name: tournamentData.sport_name
+          });
 
-          const [teamsResponse, gamesResponse, playersResponse, playerStatsResponse] = await Promise.allSettled([
+          const statsRequests = [
             configService.getTeams(id),
             configService.getGames(id),
-            configService.getPlayers(id),
-            configService.getTournamentPlayerEventStats(id)
-          ]);
+            configService.getPlayers(id)
+          ];
+          if (isFootballTournament) {
+            statsRequests.push(configService.getTournamentPlayerEventStats(id));
+          }
+
+          const settled = await Promise.allSettled(statsRequests);
+          const teamsResponse = settled[0];
+          const gamesResponse = settled[1];
+          const playersResponse = settled[2];
+          const playerStatsResponse = isFootballTournament ? settled[3] : null;
 
           const teams = teamsResponse.status === 'fulfilled' && teamsResponse.value?.success ? teamsResponse.value?.data?.teams || [] : [];
           const games = gamesResponse.status === 'fulfilled' && gamesResponse.value?.success ? gamesResponse.value?.data?.games || [] : [];
           const players = playersResponse.status === 'fulfilled' && playersResponse.value?.success ? playersResponse.value?.data?.players || [] : [];
-          const playerStatsRows = playerStatsResponse.status === 'fulfilled' && playerStatsResponse.value?.success
-            ? playerStatsResponse.value?.data?.players || []
+          const playerStatsRows = isFootballTournament
+            && playerStatsResponse?.status === 'fulfilled'
+            && playerStatsResponse.value?.success
+            ? playerStatsResponse.value?.data?.players
+              || playerStatsResponse.value?.data?.playerStats
+              || playerStatsResponse.value?.data?.stats
+              || []
             : [];
-          const goals = playerStatsRows.reduce((sum, row) => sum + (Number(row.goals) || 0), 0);
+          const goals = isFootballTournament
+            ? playerStatsRows.reduce((sum, row) => sum + (Number(row.goals) || 0), 0)
+            : 0;
+          const yellowcards = isFootballTournament
+            ? playerStatsRows.reduce((sum, row) => sum + (Number(row.yellowcards) || 0), 0)
+            : 0;
+          const redcards = isFootballTournament
+            ? playerStatsRows.reduce((sum, row) => sum + (Number(row.redcards) || 0), 0)
+            : 0;
+          const ownGoals = isFootballTournament
+            ? playerStatsRows.reduce((sum, row) => sum + (Number(row.own_goals) || 0), 0)
+            : 0;
           const divisions = new Set(
             teams
               .map((team) => (team.division != null ? String(team.division).trim() : ''))
@@ -67,6 +100,9 @@ function Tourn_home() {
             games: games.length,
             players: players.length,
             goals,
+            yellowcards,
+            redcards,
+            ownGoals,
             divisions
           });
         } else {
@@ -84,6 +120,11 @@ function Tourn_home() {
 
     loadTournament();
   }, [id]);
+
+  const isFootballTournament = isFootballSport({
+    sport_id: tournament?.sport_id,
+    sport_name: tournament?.sport_name
+  });
 
   return (
     <div className="home_container">
@@ -170,11 +211,32 @@ function Tourn_home() {
                     <strong>{overviewStats.players}</strong>
                     <small>Jugadores</small>
                   </article>
-                  <article className="tourn_home_stat_card">
-                    <IoStatsChartOutline />
-                    <strong>{overviewStats.goals}</strong>
-                    <small>Puntos</small>
-                  </article>
+                  {isFootballTournament ? (
+                    <>
+                      <article className="tourn_home_stat_card">
+                        <IoFootball />
+                        <strong>{overviewStats.goals}</strong>
+                        <small>Goles</small>
+                      </article>
+                      <article className="tourn_home_stat_card tourn_home_stat_card--yc">
+                        <span className="tourn_home_stat_icon tourn_home_stat_icon--yc" aria-hidden />
+                        <strong>{overviewStats.yellowcards}</strong>
+                        <small>Amarillas</small>
+                      </article>
+                      <article className="tourn_home_stat_card tourn_home_stat_card--rc">
+                        <span className="tourn_home_stat_icon tourn_home_stat_icon--rc" aria-hidden />
+                        <strong>{overviewStats.redcards}</strong>
+                        <small>Rojas</small>
+                      </article>
+                      <article className="tourn_home_stat_card tourn_home_stat_card--og">
+                        <span className="tourn_home_stat_icon tourn_home_stat_icon--og" aria-hidden>
+                          OG
+                        </span>
+                        <strong>{overviewStats.ownGoals}</strong>
+                        <small>Autogoles</small>
+                      </article>
+                    </>
+                  ) : null}
                   <article className="tourn_home_stat_card">
                     <IoLayersOutline />
                     <strong>{overviewStats.divisions}</strong>

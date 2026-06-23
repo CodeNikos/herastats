@@ -207,6 +207,54 @@
   font-size: 18px;
 }
 
+.tourn_home_stat_icon {
+  grid-row: 1 / span 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 18px;
+  border-radius: 2px;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.tourn_home_stat_icon--yc {
+  background: #facc15;
+  border: 1px solid #ca8a04;
+}
+
+.tourn_home_stat_icon--rc {
+  background: #ef4444;
+  border: 1px solid #b91c1c;
+}
+
+.tourn_home_stat_icon--og {
+  width: auto;
+  min-width: 22px;
+  padding: 0 3px;
+  height: 16px;
+  border-radius: 4px;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #64748b;
+  font-size: 8px;
+  letter-spacing: 0.02em;
+}
+
+.tourn_home_stat_card--yc strong {
+  color: #a16207;
+}
+
+.tourn_home_stat_card--rc strong {
+  color: #b91c1c;
+}
+
+.tourn_home_stat_card--og strong {
+  color: #475569;
+}
+
 .tourn_home_stat_card strong {
   color: #1f2740;
   font-size: 24px;
