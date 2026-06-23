@@ -5,6 +5,7 @@ import { useResolvedTournamentId } from '../hooks/useResolvedTournamentId';
 import TournamentBracket from '../components/TournamentBracket';
 import PlacementsBracket from '../components/PlacementsBracket';
 import { useTournamentSport } from '../hooks/useTournamentSport';
+import { usesFifaWorldCupBracketAutoSlots } from '../utils/footballBracketSlotPolicy';
 import { configService } from '../services/configService';
 import {
   aggregateTeamCardStatsFromPlayerRows,
@@ -109,15 +110,22 @@ function BestThirdPlacePanel({ tournamentId, division }) {
         Mejores terceros
       </h2>
       <p className="brackets-best-third-hint">
-        Se comparan los terceros de cada grupo (A–L) con criterios en orden: puntos, diferencia de goles,
-        goles a favor y fair play (tarjetas). Los <strong>8 mejores</strong> clasifican a eliminatorias. En
-        Loc./Vis. del bracket usa el slot FIFA por partido, p. ej. <strong>3ABCDF</strong>.
+        Se comparan los terceros de cada grupo (A–L). Los <strong>8 mejores</strong> clasifican; con sus
+        letras de grupo se busca la combinación FIFA (495 escenarios) y la llave de dieciseisavos (
+        <strong>1A vs 3E</strong>, etc.). En el lienzo <strong>Principal</strong>, los slots de
+        dieciseisavos se rellenan solos (<strong>1A</strong>, <strong>2B</strong>, <strong>3E</strong>…).
       </p>
 
-      {dashboard?.combinationKey ? (
+      {dashboard?.fifaQualificationKey && dashboard.qualifiedEight?.length === 8 ? (
         <p className="brackets-best-third-combination">
-          Clave de los 8 clasificados:{' '}
-          <code className="brackets-best-third-slot">{dashboard.combinationKey}</code>
+          Combinación FIFA (8 grupos clasificados):{' '}
+          <code className="brackets-best-third-slot">{dashboard.fifaQualificationKey}</code>
+          {dashboard.fifaCombinationId != null ? (
+            <>
+              {' '}
+              · Opción <strong>#{dashboard.fifaCombinationId}</strong>
+            </>
+          ) : null}
         </p>
       ) : null}
 
@@ -174,29 +182,27 @@ function BestThirdPlacePanel({ tournamentId, division }) {
         </table>
       </div>
 
-      <h3 className="brackets-best-third-section-title">Slots FIFA (asignación por partido)</h3>
+      <h3 className="brackets-best-third-section-title">Dieciseisavos — 1X vs mejor 3.º (Anexo C FIFA)</h3>
       <div className="brackets-best-third-table-wrap">
         <table className="brackets-best-third-table">
           <thead>
             <tr>
-              <th>Slot</th>
-              <th>Grupos</th>
+              <th>Partido</th>
+              <th>3.º asignado</th>
               <th>Equipo</th>
-              <th>3.º de</th>
+              <th>Grupo</th>
               <th>Pts</th>
               <th>GD</th>
               <th>GF</th>
-              <th>YC</th>
-              <th>RC</th>
             </tr>
           </thead>
           <tbody>
-            {(dashboard?.slotResults || []).map((row) => (
-              <tr key={row.slot}>
+            {(dashboard?.r32Matchups || []).map((row) => (
+              <tr key={row.matchupLabel}>
                 <td>
-                  <code className="brackets-best-third-slot">{row.slot}</code>
+                  <code className="brackets-best-third-slot">{row.matchupLabel}</code>
                 </td>
-                <td>{row.groups.join(', ')}</td>
+                <td>{row.thirdSlot}</td>
                 <td>
                   {row.team ? (
                     <span className="brackets-best-third-team">
@@ -216,12 +222,10 @@ function BestThirdPlacePanel({ tournamentId, division }) {
                     <span className="brackets-best-third-pending">Por definir</span>
                   )}
                 </td>
-                <td>{row.team?.groupLetter || '—'}</td>
+                <td>{row.thirdGroup || '—'}</td>
                 <td>{row.team?.metrics?.points ?? '—'}</td>
                 <td>{row.team?.metrics?.gd ?? '—'}</td>
                 <td>{row.team?.metrics?.gf ?? '—'}</td>
-                <td>{row.team?.metrics?.yellowcards ?? '—'}</td>
-                <td>{row.team?.metrics?.redcards ?? '—'}</td>
               </tr>
             ))}
           </tbody>
@@ -238,7 +242,8 @@ function BracketsPage() {
   const [selectedDivision, setSelectedDivision] = useState('');
   const [activeBracketView, setActiveBracketView] = useState('all');
   const [rankedCanvasList, setRankedCanvasList] = useState([]);
-  const { isFootballTournament } = useTournamentSport(tournamentId);
+  const { isFootballTournament, sportId } = useTournamentSport(tournamentId);
+  const isFifaWorldCupBracket = usesFifaWorldCupBracketAutoSlots({ tournamentId, sportId });
   const rankedCanvasIds = useMemo(
     () => rankedCanvasList.map((canvas) => String(canvas.id)).filter(Boolean),
     [rankedCanvasList]
@@ -290,11 +295,18 @@ function BracketsPage() {
           <h1>{isPoolMode ? 'Pool & Brackets' : 'Brackets'}</h1>
           {tournamentId ? (
             <p className="brackets-stats-slots-hint">
-              {isFootballTournament ? (
+              {isFifaWorldCupBracket ? (
                 <>
-                  En el lienzo <strong>Principal</strong>, las columnas <strong>Loc.</strong> / <strong>Vis.</strong> admiten la
-                  posición del grupo según estadísticas (p. ej. <strong>1A</strong>, <strong>2B</strong> o mejor tercero{' '}
-                  <strong>3ABCDF</strong>). También puedes usar <strong>Conectar lineas manualmente</strong> entre fases.
+                  En el lienzo <strong>Principal</strong>, las columnas <strong>Loc.</strong> / <strong>Vis.</strong>{' '}
+                  se rellenan solas en dieciseisavos según la llave FIFA (<strong>1A</strong>, <strong>2B</strong>,{' '}
+                  <strong>3E</strong>…). En fases siguientes puedes usar <strong>W12</strong>/<strong>L7</strong> o{' '}
+                  <strong>Conectar lineas manualmente</strong>.
+                </>
+              ) : isFootballTournament ? (
+                <>
+                  En el lienzo <strong>Principal</strong>, la primera fase eliminatoria se rellena sola con cruces de
+                  grupo (<strong>1A vs 2B</strong>, <strong>1B vs 2A</strong>, etc.). En fases siguientes usa{' '}
+                  <strong>W12</strong>/<strong>L7</strong> o <strong>Conectar lineas manualmente</strong>.
                 </>
               ) : (
                 <>
@@ -317,7 +329,7 @@ function BracketsPage() {
           <section className="brackets-empty">Selecciona un torneo para visualizar el bracket.</section>
         ) : (
           <>
-            {isFootballTournament && !isPoolMode ? (
+            {isFifaWorldCupBracket && !isPoolMode ? (
               <BestThirdPlacePanel tournamentId={tournamentId} division={selectedDivision} />
             ) : null}
             <TournamentBracket
@@ -340,6 +352,7 @@ function BracketsPage() {
                     showToolbar={!isPoolMode}
                     readOnly={isPoolMode}
                     isFootballTournament={isFootballTournament}
+                    sportId={sportId}
                   />
                 </section>
                 <section className="brackets-ranked-canvas-block">
@@ -354,6 +367,7 @@ function BracketsPage() {
                     readOnly={isPoolMode}
                     forcedRankedCanvasIds={rankedCanvasIds}
                     isFootballTournament={isFootballTournament}
+                    sportId={sportId}
                   />
                 </section>
               </div>
@@ -368,6 +382,7 @@ function BracketsPage() {
                 readOnly={isPoolMode}
                 forcedRankedCanvasIds={!isFootballTournament && activeBracketView === 'ranked' ? rankedCanvasIds : undefined}
                 isFootballTournament={isFootballTournament}
+                sportId={sportId}
               />
             ) : null}
           </>

@@ -31,6 +31,7 @@ function PoolBracketsPage() {
   const tournamentId = useResolvedTournamentId();
   const {
     isFootballTournament,
+    sportId,
     tournamentName: tournamentDisplayName,
     tournamentImageUrl
   } = useTournamentSport(tournamentId);
@@ -443,6 +444,7 @@ function PoolBracketsPage() {
                     showToolbar={false}
                     readOnly={true}
                     isFootballTournament={isFootballTournament}
+                    sportId={sportId}
                     isPoolBracketsPage
                     useGoalTotalsForScores={!isFootballTournament}
                     poolScoresSyncEpoch={poolScoresSyncEpoch}
@@ -458,6 +460,7 @@ function PoolBracketsPage() {
                     showToolbar={false}
                     readOnly={true}
                     isFootballTournament={isFootballTournament}
+                    sportId={sportId}
                     forcedRankedCanvasIds={rankedCanvasIds}
                     isPoolRankedView={true}
                     isPoolBracketsPage
@@ -475,6 +478,7 @@ function PoolBracketsPage() {
                 showToolbar={false}
                 readOnly={true}
                 isFootballTournament={isFootballTournament}
+                sportId={sportId}
                 forcedRankedCanvasIds={
                   !isFootballTournament && activeBracketView === 'ranked' ? rankedCanvasIds : undefined
                 }

@@ -18,7 +18,9 @@ import {
   parseStatsSlotDescriptor,
   resolveStatsSlotToTeam
 } from '../utils/schedulePlayoffSlotResolution';
-import { aggregateTeamCardStatsFromPlayerRows } from '../utils/bestThirdPlace';
+import { aggregateTeamCardStatsFromPlayerRows, computeBestThirdPlaceDashboard, discoverGroupLetters } from '../utils/bestThirdPlace';
+import { applyAutoFootballBracketSlotsToRounds } from '../utils/footballBracketSlots';
+import { getFootballBracketSlotMode } from '../utils/footballBracketSlotPolicy';
 import { fetchTournamentStandingsInventory } from '../utils/tournamentStandingsRefresh';
 import {
   BRACKET_PLACEMENT_OPTIONS,
@@ -343,11 +345,10 @@ const readDivision = (team) => {
   return divisionValue || 'Sin division';
 };
 
-/** Etiqueta canónica de puesto en grupo para Pool & Brackets: 1A, 2B, 3C o mejor tercero 3ABCDF. */
+/** Etiqueta canónica de puesto en grupo: 1A, 2B, 3C (tercero del grupo). */
 const formatGroupPoolSeedLabel = (raw) => {
   const parsed = parseStatsSlotDescriptor(raw);
   if (!parsed) return null;
-  if (parsed.type === 'bestThird') return parsed.slot;
   const rank = Number(parsed.rank);
   const groupToken = String(parsed.groupToken || '')
     .trim()
@@ -1556,7 +1557,8 @@ function PlacementsBracket({
   poolScoresSyncEpoch = 0,
   /** Solo lectura: al hacer clic en la tarjeta navega a `/game` (p. ej. Pool & Brackets). */
   onGameNavigate,
-  isFootballTournament = false
+  isFootballTournament = false,
+  sportId = null
 }) {
   const location = useLocation();
   const boardRef = useRef(null);
@@ -3031,6 +3033,59 @@ function PlacementsBracket({
       { persistLinks, viewKey: 'main', suppressNotify }
     );
   }, [persistBracket]);
+
+  /** Fútbol: asigna slots automáticamente según torneo (WC id 2 → FIFA; otros → 1A vs 2B…). */
+  useEffect(() => {
+    if (!isFootballTournament || !tournamentId || isRankedView || loading) return;
+    if (!String(selectedDivision ?? '').trim()) return;
+    if (!Array.isArray(rounds) || rounds.length === 0) return;
+
+    const slotMode = getFootballBracketSlotMode({ tournamentId, sportId });
+    if (slotMode === 'none') return;
+
+    let qualifiedThirdGroupLetters = [];
+    let groupLetters = [];
+
+    if (slotMode === 'fifa-wc') {
+      const dashboard = computeBestThirdPlaceDashboard(
+        standingsTeamsRaw,
+        standingsGamesRaw,
+        selectedDivision,
+        cardStatsByTeamId
+      );
+      qualifiedThirdGroupLetters = (dashboard.qualifiedEight || []).map((team) => team.groupLetter);
+    } else {
+      groupLetters = discoverGroupLetters(standingsTeamsRaw, selectedDivision);
+    }
+
+    const { rounds: nextRounds, changed } = applyAutoFootballBracketSlotsToRounds(rounds, {
+      mode: slotMode,
+      qualifiedThirdGroupLetters,
+      groupLetters
+    });
+    if (!changed) return;
+
+    roundsRef.current = nextRounds;
+    setRounds(nextRounds);
+
+    if (!readOnly) {
+      persistMainCanvas(nextRounds, manualLinksRef.current, { persistLinks: false });
+    }
+  }, [
+    isFootballTournament,
+    tournamentId,
+    sportId,
+    isRankedView,
+    loading,
+    selectedDivision,
+    rounds,
+    standingsTeamsRaw,
+    standingsGamesRaw,
+    cardStatsByTeamId,
+    readOnly,
+    persistMainCanvas,
+    silentStandingsNonce
+  ]);
 
   const hasPersistedGameId = useCallback((matchId) => {
     const parsedId = String(matchId || '');

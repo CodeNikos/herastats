@@ -12,10 +12,6 @@ import {
   parseGoalsCell
 } from './groupStandings';
 import {
-  parseBestThirdSlotDescriptor,
-  resolveBestThirdPlaceSlot
-} from './bestThirdPlace';
-import {
   resolveParticipantTeamDisplay,
   teamNameLooksGenericPlaceholder
 } from './teamDisplayResolution';
@@ -90,9 +86,6 @@ export function parseStatsSlotDescriptor(raw) {
     .replace(/\s+/g, '');
   if (!s) return null;
 
-  const bestThird = parseBestThirdSlotDescriptor(s);
-  if (bestThird) return bestThird;
-
   let m = s.match(/^(\d{1,2})([A-Z0-9]+)$/);
   if (m) return { type: 'groupRank', rank: Number(m[1]), groupToken: m[2] };
   m = s.match(/^([A-Z0-9]+)(\d{1,2})$/);
@@ -113,28 +106,11 @@ export function parseBracketAdvanceSlotDescriptor(raw) {
 }
 
 /**
- * Igual orden que estadísticas grupos (`buildGroupStandingsRows`) o mejor tercero (`3ABCDF`).
+ * Igual orden que estadísticas grupos (`buildGroupStandingsRows`).
  */
 export function resolveGroupStandingsCandidate(slotTrim, teams, division, normalizedGames = [], options = {}) {
-  const { cardStatsByTeamId } = options;
-
-  const bestThird = resolveBestThirdPlaceSlot(
-    slotTrim,
-    teams,
-    normalizedGames,
-    division || '',
-    cardStatsByTeamId
-  );
-  if (bestThird) {
-    return {
-      teamId: bestThird.teamId,
-      name: bestThird.name || 'Equipo',
-      image: bestThird.image ? String(bestThird.image).trim() : TEAM_FALLBACK_IMAGE
-    };
-  }
-
   const parsed = parseStatsSlotDescriptor(slotTrim);
-  if (!parsed || parsed.type === 'bestThird' || !Array.isArray(teams)) return null;
+  if (!parsed || !Array.isArray(teams)) return null;
   const token = String(parsed.groupToken || '').toUpperCase();
 
   const pool = [];
@@ -315,9 +291,6 @@ export function enrichScheduleParticipantFromSlots(opts, resolveBase = resolvePa
     parsedGroup &&
     (teamNameLooksGenericPlaceholder(base.name) || base.name === 'A definir')
   ) {
-    if (parsedGroup.type === 'bestThird') {
-      return { name: parsedGroup.slot, image: base.image, rosterTeamId: fromFk };
-    }
     const shortLabel = `${parsedGroup.rank}${parsedGroup.groupToken}`;
     return { name: shortLabel, image: base.image, rosterTeamId: fromFk };
   }
@@ -331,7 +304,7 @@ const normalizeGroupLabel = (groupName) => {
 };
 
 /**
- * Resuelve slot de grupo (1A, 2B, 3ABCDF) al formato de equipo usado en PlacementsBracket.
+ * Resuelve slot de grupo (1A, 2B, 3E) al formato de equipo usado en PlacementsBracket.
  */
 export function resolveStatsSlotToTeam(descriptor, teams, selectedDivision, allGames = [], options = {}) {
   const candidate = resolveGroupStandingsCandidate(
@@ -343,14 +316,6 @@ export function resolveStatsSlotToTeam(descriptor, teams, selectedDivision, allG
   );
   if (!candidate) return null;
   const parsed = parseStatsSlotDescriptor(descriptor);
-  if (parsed?.type === 'bestThird') {
-    return {
-      id: String(candidate.teamId),
-      name: candidate.name || 'Equipo',
-      seed: parsed.slot,
-      flag: candidate.image || TEAM_FALLBACK_IMAGE
-    };
-  }
   const gName = String(
     teams.find((t) => String(t.team_id ?? t.id) === String(candidate.teamId))?.group ||
       teams.find((t) => String(t.team_id ?? t.id) === String(candidate.teamId))?.grupo ||

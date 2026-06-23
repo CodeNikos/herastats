@@ -8,6 +8,11 @@
  */
 
 import { buildGroupStandingsRows, normalizeGroupName } from './groupStandings';
+import {
+  buildFifaQualificationKey,
+  getR32MatchupDescriptors,
+  lookupFifaThirdPlaceCombination
+} from './fifaThirdPlaceCombinations';
 
 /** Letras de grupo estándar (12 grupos, p. ej. Copa del Mundo). */
 export const WORLD_CUP_GROUP_LETTERS = Object.freeze([
@@ -23,18 +28,6 @@ export const WORLD_CUP_GROUP_LETTERS = Object.freeze([
   'J',
   'K',
   'L'
-]);
-
-/** Combinaciones oficiales: slot → grupos cuyos 3.º se comparan entre sí. */
-export const BEST_THIRD_PLACE_COMBINATIONS = Object.freeze([
-  { slot: '3ABCDF', groups: ['A', 'B', 'C', 'D', 'F'] },
-  { slot: '3CDFGH', groups: ['C', 'D', 'F', 'G', 'H'] },
-  { slot: '3CEFHI', groups: ['C', 'E', 'F', 'H', 'I'] },
-  { slot: '3EHIJK', groups: ['E', 'H', 'I', 'J', 'K'] },
-  { slot: '3BEFIJ', groups: ['B', 'E', 'F', 'I', 'J'] },
-  { slot: '3AEHIJ', groups: ['A', 'E', 'H', 'I', 'J'] },
-  { slot: '3EFGIJ', groups: ['E', 'F', 'G', 'I', 'J'] },
-  { slot: '3DEIJL', groups: ['D', 'E', 'I', 'J', 'L'] }
 ]);
 
 const groupSlotLetterToken = (team) => {
@@ -142,26 +135,6 @@ export function compareBestThirdCandidates(a, b) {
 }
 
 /**
- * @param {string} raw ej. `3ABCDF`
- * @returns {{ type: 'bestThird', slot: string, groups: string[] } | null}
- */
-export function parseBestThirdSlotDescriptor(raw) {
-  const s = String(raw || '')
-    .trim()
-    .toUpperCase()
-    .replace(/\s+/g, '');
-  if (!s) return null;
-
-  const m = s.match(/^3([A-Z]{2,})$/);
-  if (!m) return null;
-
-  const groups = m[1].split('');
-  if (groups.length < 2) return null;
-
-  return { type: 'bestThird', slot: s, groups };
-}
-
-/**
  * Agrega tarjetas por equipo desde filas de stats/player-events.
  * @param {Array<{ team_id?: number, id?: number, yellowcards?: number, redcards?: number }>} playerRows
  * @returns {Map<number, { yellowcards: number, redcards: number }>}
@@ -237,46 +210,6 @@ export function getThirdPlaceTeamFromGroup(groupLetter, teams, games, division, 
 }
 
 /**
- * Mejor tercero entre los grupos indicados (p. ej. ['A','B','C','D','F']).
- */
-export function pickBestThirdAmongGroups(groups, teams, games, division, cardStatsByTeamId = null) {
-  const letters = (groups || []).map((g) => String(g).trim().toUpperCase()).filter(Boolean);
-  if (letters.length === 0) return null;
-
-  const candidates = [];
-  for (const letter of letters) {
-    const third = getThirdPlaceTeamFromGroup(letter, teams, games, division, cardStatsByTeamId);
-    if (third) candidates.push(third);
-  }
-
-  if (candidates.length === 0) return null;
-
-  const sorted = [...candidates].sort(compareBestThirdCandidates);
-  return sorted[0];
-}
-
-/**
- * Resuelve slot tipo `3ABCDF` al equipo ganador del pool.
- */
-export function resolveBestThirdPlaceSlot(slotRaw, teams, games, division, cardStatsByTeamId = null) {
-  const parsed = parseBestThirdSlotDescriptor(slotRaw);
-  if (!parsed) return null;
-
-  const winner = pickBestThirdAmongGroups(parsed.groups, teams, games, division, cardStatsByTeamId);
-  if (!winner) return null;
-
-  return {
-    slot: parsed.slot,
-    groups: parsed.groups,
-    teamId: winner.teamId,
-    name: winner.name,
-    image: winner.image,
-    groupLetter: winner.groupLetter,
-    metrics: winner.metrics
-  };
-}
-
-/**
  * Letras de grupo presentes en la división (orden alfabético).
  * Si no hay datos, devuelve las 12 letras estándar A–L.
  */
@@ -342,41 +275,7 @@ export function pickTopEightThirdPlaceTeams(
 }
 
 /**
- * Clave de combinación para los 8 clasificados: `3` + letras de grupo ordenadas.
- * Ej.: ['F','A','C','B'] → `3ABCF…`
- */
-export function buildBestThirdCombinationKey(groupLetters) {
-  const letters = (groupLetters || [])
-    .map((g) => String(g).trim().toUpperCase())
-    .filter((g) => /^[A-Z]$/.test(g));
-  if (letters.length === 0) return '';
-  return `3${[...new Set(letters)].sort((a, b) => a.localeCompare(b, 'en')).join('')}`;
-}
-
-/**
- * Calcula los 8 mejores terceros (una entrada por combinación oficial).
- */
-export function computeAllBestThirdPlaceResults(teams, games, division, cardStatsByTeamId = null) {
-  return BEST_THIRD_PLACE_COMBINATIONS.map(({ slot, groups }) => {
-    const winner = pickBestThirdAmongGroups(groups, teams, games, division, cardStatsByTeamId);
-    return {
-      slot,
-      groups,
-      team: winner
-        ? {
-            teamId: winner.teamId,
-            name: winner.name,
-            image: winner.image,
-            groupLetter: winner.groupLetter,
-            metrics: winner.metrics
-          }
-        : null
-    };
-  });
-}
-
-/**
- * Panel completo: ranking global de terceros, top 8 y slots FIFA oficiales.
+ * Panel completo: ranking global, top 8 y llave FIFA (495 combinaciones, Anexo C).
  */
 export function computeBestThirdPlaceDashboard(teams, games, division, cardStatsByTeamId = null) {
   const groupLetters = discoverGroupLetters(teams, division);
@@ -390,11 +289,36 @@ export function computeBestThirdPlaceDashboard(teams, games, division, cardStats
     qualified: qualifiedGroupLetters.has(team.groupLetter)
   }));
 
+  const qualifiedLetters = qualifiedEight.map((t) => t.groupLetter);
+  const fifaQualificationKey = buildFifaQualificationKey(qualifiedLetters);
+  const fifaCombination =
+    qualifiedLetters.length === 8 ? lookupFifaThirdPlaceCombination(qualifiedLetters) : null;
+
+  const thirdByGroup = new Map(qualifiedEight.map((t) => [t.groupLetter, t]));
+  const r32Matchups = fifaCombination
+    ? getR32MatchupDescriptors(fifaCombination).map((descriptor) => {
+        const third = thirdByGroup.get(descriptor.thirdGroup);
+        return {
+          ...descriptor,
+          team: third
+            ? {
+                teamId: third.teamId,
+                name: third.name,
+                image: third.image,
+                groupLetter: third.groupLetter,
+                metrics: third.metrics
+              }
+            : null
+        };
+      })
+    : [];
+
   return {
     groupLetters,
     allThirds: allThirdsWithFlag,
     qualifiedEight,
-    combinationKey: buildBestThirdCombinationKey(qualifiedEight.map((t) => t.groupLetter)),
-    slotResults: computeAllBestThirdPlaceResults(teams, games, division, cardStatsByTeamId)
+    fifaQualificationKey,
+    fifaCombinationId: fifaCombination?.id ?? null,
+    r32Matchups
   };
 }
