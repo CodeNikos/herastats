@@ -304,7 +304,7 @@ function FootballEventsPage() {
     }
   };
 
-  const anotacionBackHref = '/anotacion';
+  const anotacionBackHref = tournamentId ? `/anotacion?tournamentId=${tournamentId}` : '/anotacion';
 
   if (!isUserAuthenticated) {
     return (

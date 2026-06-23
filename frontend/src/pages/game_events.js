@@ -5,6 +5,7 @@ import Navbar from '../components/navbar';
 import Noauth_Navbar from '../components/noauth_Navbar';
 import { useAuth } from '../hooks/useAuth';
 import { configService } from '../services/configService';
+import { buildAnotacionPath, parseTournamentId } from '../hooks/useResolvedTournamentId';
 import './game_events.css';
 
 function GameEventsPage() {
@@ -277,7 +278,7 @@ function GameEventsPage() {
 
       <main className="game-events-main">
         <header className="game-events-header">
-          <Link className="game-events-back-btn" to="/anotacion">
+          <Link className="game-events-back-btn" to={buildAnotacionPath(tournamentId)}>
             <span className="game-events-back-btn-icon" aria-hidden="true">
               ←
             </span>

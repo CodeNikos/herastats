@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import Navbar from '../components/navbar';
 import Noauth_Navbar from '../components/noauth_Navbar';
 import { useAuth } from '../hooks/useAuth';
 import { useGameMatchScore } from '../hooks/useGameMatchScore';
-import { useResolvedTournamentId } from '../hooks/useResolvedTournamentId';
+import { parseTournamentId } from '../hooks/useResolvedTournamentId';
 import { useTournamentScheduleData } from '../hooks/useTournamentScheduleData';
 import {
   isGameFinishedState,
@@ -43,9 +43,10 @@ const isEstadoUpcoming = isGameUpcomingState;
 const isEstadoFinished = isGameFinishedState;
 
 /** Query compartida: previo al partido (game_events). */
-function buildGameEventsPath(game) {
+function buildGameEventsPath(game, fallbackTournamentId = null) {
   const p = new URLSearchParams();
-  p.set('tournamentId', String(game.tournamentId));
+  const tid = parseTournamentId(game.tournamentId) ?? parseTournamentId(fallbackTournamentId);
+  if (tid != null) p.set('tournamentId', String(tid));
   p.set('gameId', String(game.id));
   if (game.gameNum != null && Number.isFinite(Number(game.gameNum))) {
     p.set('gameNum', String(game.gameNum));
@@ -84,9 +85,10 @@ function buildGamePagePath(game) {
 }
 
 /** Eventos post-partido fútbol (admin/superuser). */
-function buildFootballEventsPath(game) {
+function buildFootballEventsPath(game, fallbackTournamentId = null) {
+  const tournamentId = parseTournamentId(game.tournamentId) ?? parseTournamentId(fallbackTournamentId);
   const p = new URLSearchParams();
-  p.set('tournamentId', String(game.tournamentId));
+  if (tournamentId != null) p.set('tournamentId', String(tournamentId));
   p.set('gameId', String(game.id));
   if (game.homeTeamId != null) p.set('homeTeamId', String(game.homeTeamId));
   if (game.awayTeamId != null) p.set('awayTeamId', String(game.awayTeamId));
@@ -100,7 +102,8 @@ function AnotacionScheduleTableRow({
   game,
   navigate,
   onIrAPrevioPartido,
-  canPostMatchFootball
+  canPostMatchFootball,
+  pinnedTournamentId
 }) {
   const { localGoals, visitorGoals, loading, error } = useGameMatchScore(game.tournamentId, game.id, {
     enabled: Boolean(game.tournamentId && game.id)
@@ -136,7 +139,7 @@ function AnotacionScheduleTableRow({
         : '—';
 
   const livePath = buildLivePath(game);
-  const footballEventsPath = buildFootballEventsPath(game);
+  const footballEventsPath = buildFootballEventsPath(game, pinnedTournamentId);
   const ongoing = isEstadoOngoing(game.estado);
   const finished = isEstadoFinished(game.estado);
   const isFootball = isFootballSport({ sportId: game.sportId });
@@ -260,9 +263,14 @@ function AnotacionPage() {
   const isUserAuthenticated = isAuthenticated || hasToken;
   const canPostMatchFootball = isAdminOrSuperuser(user);
   const navigate = useNavigate();
-
-  const tournamentId = useResolvedTournamentId();
+  const [searchParams] = useSearchParams();
+  const tournamentId = parseTournamentId(searchParams.get('tournamentId'));
   const { tournaments, games, loading, error, activeTournament } = useTournamentScheduleData(tournamentId, 'anotacion');
+
+  const tournamentScopedGames = useMemo(() => {
+    if (tournamentId == null) return [];
+    return games.filter((game) => Number(game.tournamentId) === tournamentId);
+  }, [games, tournamentId]);
 
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedDate, setSelectedDate] = useState('all');
@@ -281,7 +289,7 @@ function AnotacionPage() {
       alert('Inicia sesión para comenzar el partido.');
       return;
     }
-    navigate(buildGameEventsPath(game));
+    navigate(buildGameEventsPath(game, tournamentId));
   };
 
   useEffect(() => {
@@ -293,7 +301,7 @@ function AnotacionPage() {
   }, [tournamentId]);
 
   const orderedGames = useMemo(() => {
-    return [...games].sort((a, b) => {
+    return [...tournamentScopedGames].sort((a, b) => {
       const aValue = `${a.date}T${a.time || '00:00'}`;
       const bValue = `${b.date}T${b.time || '00:00'}`;
       const cmp = aValue.localeCompare(bValue);
@@ -302,7 +310,7 @@ function AnotacionPage() {
       const bGameNum = Number.isFinite(b.gameNum) ? b.gameNum : Number.MAX_SAFE_INTEGER;
       return aGameNum - bGameNum;
     });
-  }, [games]);
+  }, [tournamentScopedGames]);
 
   const categoryOptions = useMemo(
     () => [...new Set(orderedGames.map((game) => game.category).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es')),
@@ -425,7 +433,11 @@ function AnotacionPage() {
               Mostrando partidos de este torneo
               {pinnedTournamentName ? <strong>{` · ${pinnedTournamentName}`}</strong> : null}.
             </p>
-          ) : null}
+          ) : (
+            <p className="anotacion-pinned-hint">
+              Abre este panel desde el menú <strong>Anotaciones</strong> con un torneo seleccionado.
+            </p>
+          )}
         </header>
 
         {!loading && !error && orderedGames.length > 0 ? (
@@ -544,7 +556,7 @@ function AnotacionPage() {
           <div className="anotacion-state">No hay torneos registrados todavia.</div>
         ) : null}
 
-        {!loading && !error && tournaments.length > 0 && orderedGames.length === 0 ? (
+        {!loading && !error && tournamentId != null && orderedGames.length === 0 ? (
           <div className="anotacion-state">No hay juegos registrados todavia.</div>
         ) : null}
 
@@ -577,6 +589,7 @@ function AnotacionPage() {
                       navigate={navigate}
                       onIrAPrevioPartido={handleIrAPrevioPartido}
                       canPostMatchFootball={canPostMatchFootball}
+                      pinnedTournamentId={tournamentId}
                     />
                   ))}
                 </tbody>

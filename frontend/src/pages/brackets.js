@@ -8,7 +8,7 @@ import { useTournamentSport } from '../hooks/useTournamentSport';
 import { configService } from '../services/configService';
 import {
   aggregateTeamCardStatsFromPlayerRows,
-  computeAllBestThirdPlaceResults
+  computeBestThirdPlaceDashboard
 } from '../utils/bestThirdPlace';
 import './brackets.css';
 
@@ -19,11 +19,11 @@ const TEAM_FALLBACK_IMAGE = '/Hera_logo.png';
 function BestThirdPlacePanel({ tournamentId, division }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [results, setResults] = useState([]);
+  const [dashboard, setDashboard] = useState(null);
 
   useEffect(() => {
     if (!tournamentId) {
-      setResults([]);
+      setDashboard(null);
       setLoading(false);
       return undefined;
     }
@@ -61,8 +61,8 @@ function BestThirdPlacePanel({ tournamentId, division }) {
             )
           : teams;
 
-        setResults(
-          computeAllBestThirdPlaceResults(
+        setDashboard(
+          computeBestThirdPlaceDashboard(
             divisionFilteredTeams.length > 0 ? divisionFilteredTeams : teams,
             games,
             division || '',
@@ -72,7 +72,7 @@ function BestThirdPlacePanel({ tournamentId, division }) {
       } catch (e) {
         if (!cancelled) {
           setError(e?.message || 'No se pudieron calcular los mejores terceros.');
-          setResults([]);
+          setDashboard(null);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -109,9 +109,72 @@ function BestThirdPlacePanel({ tournamentId, division }) {
         Mejores terceros
       </h2>
       <p className="brackets-best-third-hint">
-        Criterios (en orden): puntos, diferencia de goles, goles a favor, fair play (tarjetas). Usa el slot en
-        Loc./Vis. del bracket, p. ej. <strong>3ABCDF</strong> junto a <strong>1A</strong> o <strong>2B</strong>.
+        Se comparan los terceros de cada grupo (A–L) con criterios en orden: puntos, diferencia de goles,
+        goles a favor y fair play (tarjetas). Los <strong>8 mejores</strong> clasifican a eliminatorias. En
+        Loc./Vis. del bracket usa el slot FIFA por partido, p. ej. <strong>3ABCDF</strong>.
       </p>
+
+      {dashboard?.combinationKey ? (
+        <p className="brackets-best-third-combination">
+          Clave de los 8 clasificados:{' '}
+          <code className="brackets-best-third-slot">{dashboard.combinationKey}</code>
+        </p>
+      ) : null}
+
+      <h3 className="brackets-best-third-section-title">Clasificación global (3.º por grupo)</h3>
+      <div className="brackets-best-third-table-wrap">
+        <table className="brackets-best-third-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Grupo</th>
+              <th>Equipo</th>
+              <th>Pts</th>
+              <th>GD</th>
+              <th>GF</th>
+              <th>FP</th>
+              <th>YC</th>
+              <th>RC</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(dashboard?.allThirds || []).map((row) => (
+              <tr
+                key={`global-${row.groupLetter}-${row.teamId}`}
+                className={row.qualified ? 'brackets-best-third-row--qualified' : undefined}
+              >
+                <td>{row.globalRank}</td>
+                <td>{row.groupLetter}</td>
+                <td>
+                  <span className="brackets-best-third-team">
+                    <img
+                      src={row.image || TEAM_FALLBACK_IMAGE}
+                      alt=""
+                      className="brackets-best-third-logo"
+                      onError={(e) => {
+                        if (!e.currentTarget.src.includes(TEAM_FALLBACK_IMAGE)) {
+                          e.currentTarget.src = TEAM_FALLBACK_IMAGE;
+                        }
+                      }}
+                    />
+                    {row.name}
+                  </span>
+                </td>
+                <td>{row.metrics?.points ?? '—'}</td>
+                <td>{row.metrics?.gd ?? '—'}</td>
+                <td>{row.metrics?.gf ?? '—'}</td>
+                <td>{row.metrics?.fairPlayScore ?? '—'}</td>
+                <td>{row.metrics?.yellowcards ?? '—'}</td>
+                <td>{row.metrics?.redcards ?? '—'}</td>
+                <td>{row.qualified ? 'Clasificado' : 'Eliminado'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <h3 className="brackets-best-third-section-title">Slots FIFA (asignación por partido)</h3>
       <div className="brackets-best-third-table-wrap">
         <table className="brackets-best-third-table">
           <thead>
@@ -128,7 +191,7 @@ function BestThirdPlacePanel({ tournamentId, division }) {
             </tr>
           </thead>
           <tbody>
-            {results.map((row) => (
+            {(dashboard?.slotResults || []).map((row) => (
               <tr key={row.slot}>
                 <td>
                   <code className="brackets-best-third-slot">{row.slot}</code>

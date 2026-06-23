@@ -3,6 +3,10 @@ import {
   compareBestThirdCandidates,
   pickBestThirdAmongGroups,
   computeAllBestThirdPlaceResults,
+  computeBestThirdPlaceDashboard,
+  pickTopEightThirdPlaceTeams,
+  buildBestThirdCombinationKey,
+  rankThirdPlaceTeamsGlobally,
   computeFairPlayScore,
   BEST_THIRD_PLACE_COMBINATIONS
 } from './bestThirdPlace';
@@ -62,6 +66,29 @@ describe('bestThirdPlace', () => {
     const results = computeAllBestThirdPlaceResults([], [], 'Open');
     expect(results).toHaveLength(BEST_THIRD_PLACE_COMBINATIONS.length);
     expect(results[0].slot).toBe('3ABCDF');
+  });
+
+  test('pickTopEightThirdPlaceTeams ordena globalmente y devuelve 8', () => {
+    const thirds = [
+      { groupLetter: 'A', name: 'A3', metrics: { points: 6, gd: 2, gf: 5, fairPlayScore: -1 } },
+      { groupLetter: 'B', name: 'B3', metrics: { points: 4, gd: 1, gf: 4, fairPlayScore: -2 } },
+      { groupLetter: 'C', name: 'C3', metrics: { points: 4, gd: 0, gf: 3, fairPlayScore: 0 } },
+      { groupLetter: 'D', name: 'D3', metrics: { points: 3, gd: 0, gf: 2, fairPlayScore: 0 } }
+    ];
+    const ranked = rankThirdPlaceTeamsGlobally(thirds);
+    expect(ranked[0].groupLetter).toBe('A');
+    expect(ranked[0].globalRank).toBe(1);
+    expect(ranked[1].groupLetter).toBe('B');
+
+    const key = buildBestThirdCombinationKey(['F', 'A', 'C', 'B']);
+    expect(key).toBe('3ABCF');
+  });
+
+  test('computeBestThirdPlaceDashboard marca qualified en top 8', () => {
+    const dashboard = computeBestThirdPlaceDashboard([], [], 'Open');
+    expect(dashboard.slotResults).toHaveLength(8);
+    expect(dashboard.qualifiedEight).toHaveLength(0);
+    expect(dashboard.combinationKey).toBe('');
   });
 
   test('computeFairPlayScore mayor con menos tarjetas', () => {

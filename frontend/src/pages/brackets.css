@@ -108,6 +108,28 @@
   color: #555;
 }
 
+.brackets-best-third-combination {
+  margin: 0 0 0.85rem;
+  font-size: 0.84rem;
+  color: #28345f;
+}
+
+.brackets-best-third-section-title {
+  margin: 1rem 0 0.5rem;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.brackets-best-third-row--qualified {
+  background: #f0fdf4;
+}
+
+.brackets-best-third-row--qualified td:last-child {
+  color: #166534;
+  font-weight: 600;
+}
+
 .brackets-best-third-table-wrap {
   overflow-x: auto;
 }

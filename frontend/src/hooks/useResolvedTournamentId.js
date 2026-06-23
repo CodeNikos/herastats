@@ -7,9 +7,13 @@ export function parseTournamentId(value) {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
+export function buildAnotacionPath(tournamentId) {
+  const parsed = parseTournamentId(tournamentId);
+  return parsed != null ? `/anotacion?tournamentId=${parsed}` : '/anotacion';
+}
+
 /**
  * Torneo activo: prop explícita > ruta (:id, :tournamentId) > query ?tournamentId=
- * Siempre usar este hook (o pasar tournamentId al Navbar) para no mezclar torneos.
  */
 export function useResolvedTournamentId(explicitId = null) {
   const params = useParams();
@@ -28,8 +32,6 @@ export function useResolvedTournamentId(explicitId = null) {
 
 /**
  * Ejecuta reset al cambiar de torneo (evita mostrar datos del torneo anterior mientras carga).
- * @param {number|string|null} tournamentId
- * @param {() => void} onReset
  */
 export function useTournamentPageReset(tournamentId, onReset) {
   const prevRef = useRef(tournamentId);

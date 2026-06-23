@@ -51,6 +51,13 @@ export function useTournamentScheduleData(tournamentId, variant = 'calendar') {
           return;
         }
 
+        // Anotación: sin torneo en URL no cargar listados globales.
+        if (variant === 'anotacion') {
+          setTournaments([]);
+          setGames([]);
+          return;
+        }
+
         const tournamentsResponse = await configService.getTournaments();
         if (cancelled) return;
 
