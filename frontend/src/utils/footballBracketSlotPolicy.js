@@ -17,7 +17,8 @@ export function usesFifaWorldCupBracketAutoSlots({
 } = {}) {
   const tid = toPositiveInt(tournamentId);
   const sid = toPositiveInt(sportId);
-  const wcId = toPositiveInt(fifaWcTournamentId) ?? FIFA_WC_TOURNAMENT_ID;
+  const wcId = toPositiveInt(fifaWcTournamentId);
+  if (wcId == null) return false;
   return sid === FOOTBALL_SPORT_ID && tid === wcId;
 }
 

@@ -22,8 +22,10 @@ if (isProd) {
 
   const fifaWcId = (process.env.REACT_APP_FIFA_WC_TOURNAMENT_ID || '').trim();
   if (!fifaWcId) {
-    console.warn(
-      '[Herastats] AVISO: REACT_APP_FIFA_WC_TOURNAMENT_ID no está definido; se usará torneo id=2 (solo válido en local).'
+    console.error(
+      '[Herastats] ERROR: REACT_APP_FIFA_WC_TOURNAMENT_ID es obligatorio en build de producción.\n' +
+        'En Seenode (frontend): REACT_APP_FIFA_WC_TOURNAMENT_ID=3 (mismo valor que TOURNAMENT_2_SYNC_TARGET_TOURNAMENT_ID del backend).'
     );
+    process.exit(1);
   }
 }

@@ -44,6 +44,13 @@ describe('footballBracketSlotPolicy', () => {
         fifaWcTournamentId: 2
       })
     ).toBe(false);
+    expect(
+      usesFifaWorldCupBracketAutoSlots({
+        tournamentId: 3,
+        sportId: 2,
+        fifaWcTournamentId: null
+      })
+    ).toBe(false);
   });
 
   test('otros torneos de fútbol sin auto-asignación', () => {

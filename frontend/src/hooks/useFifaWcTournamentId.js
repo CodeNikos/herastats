@@ -29,11 +29,11 @@ function fetchFifaWcTournamentId() {
 }
 
 /**
- * Torneo WC (Anexo C, auto slots 3X): API (TOURNAMENT_2_SYNC_TARGET_TOURNAMENT_ID)
- * con fallback a REACT_APP_FIFA_WC_TOURNAMENT_ID del build.
+ * Torneo WC (Anexo C, auto slots 3X): API primero; fallback REACT_APP_FIFA_WC_TOURNAMENT_ID.
+ * `fifaWcTournamentId` es null hasta resolver (evita comparar con id=2 por defecto en prod).
  */
 export function useFifaWcTournamentId() {
-  const [fifaWcTournamentId, setFifaWcTournamentId] = useState(cachedId ?? FIFA_WC_TOURNAMENT_ID);
+  const [fifaWcTournamentId, setFifaWcTournamentId] = useState(cachedId);
   const [loading, setLoading] = useState(cachedId == null);
 
   useEffect(() => {

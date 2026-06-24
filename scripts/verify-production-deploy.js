@@ -72,6 +72,39 @@ async function main() {
     if (!text.includes('root')) throw new Error('no parece SPA index');
   });
 
+  await run('GET /api/config/app-settings (fifaWcTournamentId)', async () => {
+    const res = await fetch(`${backendBase}/api/config/app-settings`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const body = await res.json();
+    const id = Number(body?.data?.fifaWcTournamentId);
+    if (!Number.isInteger(id) || id <= 0) {
+      throw new Error(`fifaWcTournamentId inválido: ${JSON.stringify(body?.data)}`);
+    }
+  });
+
+  await run(`GET ${frontendBase}/ build-info.json`, async () => {
+    const res = await fetch(`${frontendBase}/build-info.json`);
+    if (!res.ok) throw new Error(`HTTP ${res.status} (¿redeploy frontend con postbuild?)`);
+    const body = await res.json();
+    if (!body.gitSha) throw new Error('falta gitSha en build-info.json');
+    console.log(`     → frontend gitSha=${body.gitSha} fifaWc=${body.fifaWcTournamentId}`);
+  });
+
+  await run(`GET ${frontendBase}/ index.html bundle`, async () => {
+    const res = await fetch(`${frontendBase}/`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const html = await res.text();
+    const m = html.match(/main\.([a-f0-9]+)\.js/);
+    if (!m) throw new Error('no se encontró main.*.js en index.html');
+    const jsRes = await fetch(`${frontendBase}/static/js/main.${m[1]}.js`);
+    if (!jsRes.ok) throw new Error(`bundle main.${m[1]}.js HTTP ${jsRes.status}`);
+    const js = await jsRes.text();
+    if (!js.includes('/config/app-settings')) {
+      throw new Error(`bundle main.${m[1]}.js sin integración app-settings (deploy antiguo)`);
+    }
+    console.log(`     → bundle main.${m[1]}.js`);
+  });
+
   console.log(`\n${ok}/${total} comprobaciones OK`);
   process.exit(ok === total ? 0 : 1);
 }
