@@ -18,7 +18,7 @@ import {
   parseStatsSlotDescriptor,
   resolveStatsSlotToTeam
 } from '../utils/schedulePlayoffSlotResolution';
-import { aggregateTeamCardStatsFromPlayerRows, computeBestThirdPlaceDashboard, discoverGroupLetters } from '../utils/bestThirdPlace';
+import { aggregateTeamCardStatsFromPlayerRows, computeBestThirdPlaceDashboard } from '../utils/bestThirdPlace';
 import { applyAutoFootballBracketSlotsToRounds } from '../utils/footballBracketSlots';
 import { getFootballBracketSlotMode } from '../utils/footballBracketSlotPolicy';
 import { fetchTournamentStandingsInventory } from '../utils/tournamentStandingsRefresh';
@@ -3034,34 +3034,26 @@ function PlacementsBracket({
     );
   }, [persistBracket]);
 
-  /** Fútbol: asigna slots automáticamente según torneo (WC id 2 → FIFA; otros → 1A vs 2B…). */
+  /** Torneo WC: solo actualiza slots 3X (mejores terceros); el resto es manual (1A, 2B…). */
   useEffect(() => {
     if (!isFootballTournament || !tournamentId || isRankedView || loading) return;
     if (!String(selectedDivision ?? '').trim()) return;
     if (!Array.isArray(rounds) || rounds.length === 0) return;
 
     const slotMode = getFootballBracketSlotMode({ tournamentId, sportId });
-    if (slotMode === 'none') return;
+    if (slotMode !== 'fifa-wc') return;
 
-    let qualifiedThirdGroupLetters = [];
-    let groupLetters = [];
-
-    if (slotMode === 'fifa-wc') {
-      const dashboard = computeBestThirdPlaceDashboard(
-        standingsTeamsRaw,
-        standingsGamesRaw,
-        selectedDivision,
-        cardStatsByTeamId
-      );
-      qualifiedThirdGroupLetters = (dashboard.qualifiedEight || []).map((team) => team.groupLetter);
-    } else {
-      groupLetters = discoverGroupLetters(standingsTeamsRaw, selectedDivision);
-    }
+    const dashboard = computeBestThirdPlaceDashboard(
+      standingsTeamsRaw,
+      standingsGamesRaw,
+      selectedDivision,
+      cardStatsByTeamId
+    );
+    const qualifiedThirdGroupLetters = (dashboard.qualifiedEight || []).map((team) => team.groupLetter);
 
     const { rounds: nextRounds, changed } = applyAutoFootballBracketSlotsToRounds(rounds, {
       mode: slotMode,
-      qualifiedThirdGroupLetters,
-      groupLetters
+      qualifiedThirdGroupLetters
     });
     if (!changed) return;
 

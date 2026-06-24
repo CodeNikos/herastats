@@ -112,8 +112,10 @@ function BestThirdPlacePanel({ tournamentId, division }) {
       <p className="brackets-best-third-hint">
         Se comparan los terceros de cada grupo (A–L). Los <strong>8 mejores</strong> clasifican; con sus
         letras de grupo se busca la combinación FIFA (495 escenarios) y la llave de dieciseisavos (
-        <strong>1A vs 3E</strong>, etc.). En el lienzo <strong>Principal</strong>, los slots de
-        dieciseisavos se rellenan solos (<strong>1A</strong>, <strong>2B</strong>, <strong>3E</strong>…).
+        <strong>1A vs 3E</strong>, etc.). En el lienzo <strong>Principal</strong>, solo los slots de
+        <strong> mejores terceros</strong> (<strong>3E</strong>, <strong>3J</strong>…) se actualizan solos;
+        el resto de cruces (<strong>1C</strong>, <strong>2B</strong>, <strong>1A</strong>, <strong>2F</strong>…) los
+        configuras en Loc./Vis.
       </p>
 
       {dashboard?.fifaQualificationKey && dashboard.qualifiedEight?.length === 8 ? (
@@ -297,16 +299,18 @@ function BracketsPage() {
             <p className="brackets-stats-slots-hint">
               {isFifaWorldCupBracket ? (
                 <>
-                  En el lienzo <strong>Principal</strong>, las columnas <strong>Loc.</strong> / <strong>Vis.</strong>{' '}
-                  se rellenan solas en dieciseisavos según la llave FIFA (<strong>1A</strong>, <strong>2B</strong>,{' '}
-                  <strong>3E</strong>…). En fases siguientes puedes usar <strong>W12</strong>/<strong>L7</strong> o{' '}
-                  <strong>Conectar lineas manualmente</strong>.
+                  En el lienzo <strong>Principal</strong>, configura los cruces en <strong>Loc.</strong> /{' '}
+                  <strong>Vis.</strong> (<strong>1C</strong>, <strong>2B</strong>, <strong>1A</strong>,{' '}
+                  <strong>2F</strong>…). Solo los <strong>mejores terceros</strong> (<strong>3E</strong>, etc.) se
+                  actualizan solos según el Anexo C. En fases siguientes usa <strong>W12</strong>/<strong>L7</strong>{' '}
+                  o <strong>Conectar lineas manualmente</strong>.
                 </>
               ) : isFootballTournament ? (
                 <>
-                  En el lienzo <strong>Principal</strong>, la primera fase eliminatoria se rellena sola con cruces de
-                  grupo (<strong>1A vs 2B</strong>, <strong>1B vs 2A</strong>, etc.). En fases siguientes usa{' '}
-                  <strong>W12</strong>/<strong>L7</strong> o <strong>Conectar lineas manualmente</strong>.
+                  En el lienzo <strong>Principal</strong>, configura los cruces en <strong>Loc.</strong> /{' '}
+                  <strong>Vis.</strong> (<strong>1A</strong>, <strong>2B</strong>, <strong>1C</strong>,{' '}
+                  <strong>2F</strong>…). En fases siguientes usa <strong>W12</strong>/<strong>L7</strong> o{' '}
+                  <strong>Conectar lineas manualmente</strong>.
                 </>
               ) : (
                 <>

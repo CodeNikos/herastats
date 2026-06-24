@@ -11,25 +11,18 @@ const toPositiveInt = (value) => {
   return Number.isInteger(n) && n > 0 ? n : null;
 };
 
-/** Llave FIFA WC26 (dieciseisavos + Anexo C): solo torneo 2 y sport_id = 2. */
+/** Auto-asignación de mejores terceros (3X, Anexo C): solo torneo 2 y sport_id = 2. */
 export function usesFifaWorldCupBracketAutoSlots({ tournamentId, sportId } = {}) {
   const tid = toPositiveInt(tournamentId);
   const sid = toPositiveInt(sportId);
   return sid === FOOTBALL_SPORT_ID && tid === FIFA_WC_BRACKET_TOURNAMENT_ID;
 }
 
-/** Cruces clásicos 1A vs 2B, 1B vs 2A: fútbol (sport_id = 2) en cualquier otro torneo. */
-export function usesStandardFootballBracketAutoSlots({ tournamentId, sportId } = {}) {
-  const tid = toPositiveInt(tournamentId);
-  const sid = toPositiveInt(sportId);
-  return sid === FOOTBALL_SPORT_ID && tid != null && tid !== FIFA_WC_BRACKET_TOURNAMENT_ID;
-}
-
 /**
- * @returns {'fifa-wc' | 'standard' | 'none'}
+ * @returns {'fifa-wc' | 'none'}
+ * Otros torneos de fútbol: cruces 1A/2B se configuran manualmente en Loc./Vis.
  */
 export function getFootballBracketSlotMode({ tournamentId, sportId } = {}) {
   if (usesFifaWorldCupBracketAutoSlots({ tournamentId, sportId })) return 'fifa-wc';
-  if (usesStandardFootballBracketAutoSlots({ tournamentId, sportId })) return 'standard';
   return 'none';
 }

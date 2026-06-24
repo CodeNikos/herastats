@@ -1,12 +1,12 @@
 /**
- * Asignación automática de nomenclatura en brackets de fútbol.
- * - Torneo WC (id 2, sport 2): plantilla FIFA dieciseisavos + Anexo C.
- * - Otros torneos de fútbol: 1A vs 2B, 1B vs 2A por pares de grupos.
+ * Asignación automática en brackets de fútbol.
+ * - Torneo WC (id 2, sport 2): solo slots de mejores terceros (3X) según Anexo C FIFA.
+ * - Resto de cruces (1A, 2B, 1C, 2F…): configuración manual en Loc./Vis.
  */
 
 import { lookupFifaThirdPlaceCombination } from './fifaThirdPlaceCombinations';
 
-/** Orden oficial de los 16 partidos de dieciseisavos. */
+/** Orden oficial de los 16 partidos de dieciseisavos (referencia FIFA WC26). */
 export const FIFA_R32_MATCH_SLOT_TEMPLATE = Object.freeze([
   { local: '2A', visitor: '2B' },
   { local: '1E', visitorSlotKey: 'slot1E' },
@@ -47,30 +47,12 @@ export function findDieciseisavosRoundIndex(rounds) {
   return 0;
 }
 
-/** Primera fase eliminatoria (playoffs, octavos, dieciseisavos…). */
-export function findFirstKnockoutRoundIndex(rounds) {
-  return findDieciseisavosRoundIndex(rounds);
-}
-
-/**
- * Cruces estándar por pares de grupos: A–B → 1A vs 2B y 1B vs 2A; C–D → 1C vs 2D y 1D vs 2C…
- */
-export function buildStandardFootballRoundSlotAssignments(groupLetters = []) {
-  const letters = [...new Set(
-    (groupLetters || [])
-      .map((letter) => String(letter).trim().toUpperCase())
-      .filter((letter) => /^[A-Z]$/.test(letter))
-  )].sort((a, b) => a.localeCompare(b, 'en'));
-
-  const assignments = [];
-  for (let index = 0; index < letters.length; index += 2) {
-    const groupA = letters[index];
-    const groupB = letters[index + 1];
-    if (!groupB) break;
-    assignments.push({ local: `1${groupA}`, visitor: `2${groupB}` });
-    assignments.push({ local: `1${groupB}`, visitor: `2${groupA}` });
-  }
-  return assignments;
+/** Slot de tercero de grupo: 3A, 3E… */
+export function isThirdPlaceGroupSlot(slot) {
+  const normalized = String(slot || '')
+    .trim()
+    .toUpperCase();
+  return /^3[A-Z]$/.test(normalized);
 }
 
 export function buildFifaR32RoundSlotAssignments(fifaCombination) {
@@ -84,6 +66,16 @@ export function buildFifaR32RoundSlotAssignments(fifaCombination) {
       visitor
     };
   });
+}
+
+/**
+ * Solo los 8 slots 3X del Anexo C (posición en dieciseisavos según plantilla FIFA).
+ */
+export function buildFifaThirdPlaceOnlyAssignments(fifaCombination) {
+  return buildFifaR32RoundSlotAssignments(fifaCombination).map((entry) => ({
+    local: isThirdPlaceGroupSlot(entry.local) ? entry.local : null,
+    visitor: isThirdPlaceGroupSlot(entry.visitor) ? entry.visitor : null
+  }));
 }
 
 const normSlot = (value) => (value == null ? '' : String(value).trim().toUpperCase());
@@ -154,11 +146,10 @@ function applyAssignmentsToRound(round, assignments) {
 }
 
 /**
- * Aplica nomenclatura FIFA a la fase de dieciseisavos (por `bracket_order` 1–16).
- * @param {Array} rounds
- * @param {string[]} qualifiedThirdGroupLetters — 8 letras de grupo de los mejores terceros
+ * Solo actualiza slots 3X (mejores terceros) en dieciseisavos según Anexo C.
+ * No modifica 1A, 2B, 1C, 2F… ya configurados manualmente.
  */
-export function applyFifaR32SlotsToRounds(rounds, qualifiedThirdGroupLetters = []) {
+export function applyFifaThirdPlaceSlotsOnlyToRounds(rounds, qualifiedThirdGroupLetters = []) {
   if (!Array.isArray(rounds) || rounds.length === 0) {
     return { rounds, changed: false };
   }
@@ -170,9 +161,12 @@ export function applyFifaR32SlotsToRounds(rounds, qualifiedThirdGroupLetters = [
     .map((g) => String(g).trim().toUpperCase())
     .filter((g) => /^[A-Z]$/.test(g));
 
-  const fifaCombination =
-    letters.length === 8 ? lookupFifaThirdPlaceCombination(letters) : null;
-  const assignments = buildFifaR32RoundSlotAssignments(fifaCombination);
+  if (letters.length !== 8) return { rounds, changed: false };
+
+  const fifaCombination = lookupFifaThirdPlaceCombination(letters);
+  if (!fifaCombination) return { rounds, changed: false };
+
+  const assignments = buildFifaThirdPlaceOnlyAssignments(fifaCombination);
   const { round: updatedRound, changed } = applyAssignmentsToRound(rounds[roundIndex], assignments);
 
   if (!changed) return { rounds, changed: false };
@@ -182,38 +176,15 @@ export function applyFifaR32SlotsToRounds(rounds, qualifiedThirdGroupLetters = [
 }
 
 /**
- * Aplica cruces 1A vs 2B, 1B vs 2A… en la primera fase eliminatoria.
- */
-export function applyStandardFootballSlotsToRounds(rounds, groupLetters = []) {
-  if (!Array.isArray(rounds) || rounds.length === 0) {
-    return { rounds, changed: false };
-  }
-
-  const roundIndex = findFirstKnockoutRoundIndex(rounds);
-  if (roundIndex < 0) return { rounds, changed: false };
-
-  const assignments = buildStandardFootballRoundSlotAssignments(groupLetters);
-  const { round: updatedRound, changed } = applyAssignmentsToRound(rounds[roundIndex], assignments);
-
-  if (!changed) return { rounds, changed: false };
-
-  const nextRounds = rounds.map((item, index) => (index === roundIndex ? updatedRound : item));
-  return { rounds: nextRounds, changed: true };
-}
-
-/**
- * Despacha según modo de bracket de fútbol.
- * @param {'fifa-wc' | 'standard'} mode
+ * Despacha auto-asignación de bracket de fútbol (solo mejores terceros en torneo WC).
+ * @param {'fifa-wc' | 'none'} mode
  */
 export function applyAutoFootballBracketSlotsToRounds(
   rounds,
-  { mode, qualifiedThirdGroupLetters = [], groupLetters = [] } = {}
+  { mode, qualifiedThirdGroupLetters = [] } = {}
 ) {
   if (mode === 'fifa-wc') {
-    return applyFifaR32SlotsToRounds(rounds, qualifiedThirdGroupLetters);
-  }
-  if (mode === 'standard') {
-    return applyStandardFootballSlotsToRounds(rounds, groupLetters);
+    return applyFifaThirdPlaceSlotsOnlyToRounds(rounds, qualifiedThirdGroupLetters);
   }
   return { rounds, changed: false };
 }
