@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { GiDrippingSword, GiRosaShield } from 'react-icons/gi';
 import Navbar from '../components/navbar';
-import Noauth_Navbar from '../components/noauth_Navbar';
+import NoauthNavbar from '../components/noauth_Navbar';
 import { useAuth } from '../hooks/useAuth';
 import { configService } from '../services/configService';
 import { buildAnotacionPath, parseTournamentId } from '../hooks/useResolvedTournamentId';
@@ -274,7 +274,7 @@ function GameEventsPage() {
 
   return (
     <div className="game-events-page">
-      <div className="game-events-topbar">{isUserAuthenticated ? <Navbar tournamentId={tournamentId} /> : <Noauth_Navbar />}</div>
+      <div className="game-events-topbar">{isUserAuthenticated ? <Navbar tournamentId={tournamentId} /> : <NoauthNavbar />}</div>
 
       <main className="game-events-main">
         <header className="game-events-header">

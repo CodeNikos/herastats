@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Navbar from '../components/navbar';
-import Noauth_Navbar from '../components/noauth_Navbar';
+import NoauthNavbar from '../components/noauth_Navbar';
 import SeoHead from '../components/SeoHead';
 import { DEFAULT_SITE_DESCRIPTION, DEFAULT_SITE_TITLE } from '../config/siteConfig';
 import { useAuth } from '../hooks/useAuth';
@@ -256,7 +256,7 @@ function CalendarPage() {
         image={activeTournament?.image_url || undefined}
       />
       <div className="calendar-topbar">
-        {isUserAuthenticated ? <Navbar tournamentId={tournamentId} /> : <Noauth_Navbar />}
+        {isUserAuthenticated ? <Navbar tournamentId={tournamentId} /> : <NoauthNavbar />}
       </div>
 
       <main className="calendar-content">

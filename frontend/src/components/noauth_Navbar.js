@@ -20,7 +20,7 @@ const ROLE_LABELS = {
 };
 
 
-function Noauth_Navbar({ showPublicNavLinks = true, hideAmbientToggle = false }) {
+function NoauthNavbar({ showPublicNavLinks = true, hideAmbientToggle = false }) {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [profileMenuOpen, setProfileMenuOpen] = useState(false);
     const [profileEditOpen, setProfileEditOpen] = useState(false);
@@ -287,5 +287,5 @@ return (
 }
 
 
-export default Noauth_Navbar;
+export default NoauthNavbar;
 

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import Navbar from '../components/navbar';
-import Noauth_Navbar from '../components/noauth_Navbar';
+import NoauthNavbar from '../components/noauth_Navbar';
 import { useAuth } from '../hooks/useAuth';
 import { useGameMatchScore } from '../hooks/useGameMatchScore';
 import GamePhaseClockDisplay from '../components/GamePhaseClockDisplay';
@@ -1236,7 +1236,7 @@ function LivePage() {
         {isUserAuthenticated ? (
           <Navbar tournamentId={tournamentIdParam} hideAmbientToggle={goalModalOpen} />
         ) : (
-          <Noauth_Navbar hideAmbientToggle={goalModalOpen} />
+          <NoauthNavbar hideAmbientToggle={goalModalOpen} />
         )}
       </div>
 

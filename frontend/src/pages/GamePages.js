@@ -3,7 +3,7 @@ import { useSearchParams, Link } from 'react-router-dom';
 import './GamesPages.css';
 import GamePhaseClockDisplay from '../components/GamePhaseClockDisplay';
 import Navbar from '../components/navbar';
-import Noauth_Navbar from '../components/noauth_Navbar';
+import NoauthNavbar from '../components/noauth_Navbar';
 import SeoHead from '../components/SeoHead';
 import { DEFAULT_SITE_TITLE } from '../config/siteConfig';
 import { buildSportsEventJsonLd } from '../utils/seoJsonLd';
@@ -1606,7 +1606,7 @@ function GamePages() {
         jsonLd={gameSeo.jsonLd}
       />
       <div className="topbar">
-        {isUserAuthenticated ? <Navbar tournamentId={tournamentIdParam} /> : <Noauth_Navbar />}
+        {isUserAuthenticated ? <Navbar tournamentId={tournamentIdParam} /> : <NoauthNavbar />}
       </div>
       <div className="body_container">
         {!gameLoading ? (

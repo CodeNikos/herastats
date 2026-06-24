@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import Navbar from '../components/navbar';
-import Noauth_Navbar from '../components/noauth_Navbar';
+import NoauthNavbar from '../components/noauth_Navbar';
 import { useAuth } from '../hooks/useAuth';
 import { useGameMatchScore } from '../hooks/useGameMatchScore';
 import { parseTournamentId } from '../hooks/useResolvedTournamentId';
@@ -422,7 +422,7 @@ function AnotacionPage() {
   return (
     <div className="anotacion-page">
       <div className="anotacion-topbar">
-        {isUserAuthenticated ? <Navbar tournamentId={tournamentId} /> : <Noauth_Navbar />}
+        {isUserAuthenticated ? <Navbar tournamentId={tournamentId} /> : <NoauthNavbar />}
       </div>
 
       <main className="anotacion-content">

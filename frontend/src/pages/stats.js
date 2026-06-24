@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import Navbar from '../components/navbar';
 import SeoHead from '../components/SeoHead';
 import { DEFAULT_SITE_DESCRIPTION, DEFAULT_SITE_TITLE } from '../config/siteConfig';
@@ -143,7 +143,6 @@ function sortPlayerRows(rows, sortKey, asc) {
 }
 
 function StatsPage() {
-  const location = useLocation();
   const tournamentId = useResolvedTournamentId();
 
   const [teams, setTeams] = useState([]);

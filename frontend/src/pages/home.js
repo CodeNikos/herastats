@@ -6,7 +6,7 @@ import { sportsService } from '../services/sportsService';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { isAdmin } from '../utils/userRoles';
-import Noauth_Navbar from '../components/noauth_Navbar';
+import NoauthNavbar from '../components/noauth_Navbar';
 import SeoHead from '../components/SeoHead';
 import { DEFAULT_SITE_DESCRIPTION, DEFAULT_SITE_TITLE } from '../config/siteConfig';
 import { buildWebSiteJsonLd } from '../utils/seoJsonLd';
@@ -365,7 +365,7 @@ function Home() {
         pathname="/home"
         jsonLd={buildWebSiteJsonLd()}
       />
-      <Noauth_Navbar showPublicNavLinks={false} />
+      <NoauthNavbar showPublicNavLinks={false} />
       <div className="home_container">
         <div className="body_container_home">
           {canCreateTournament && (

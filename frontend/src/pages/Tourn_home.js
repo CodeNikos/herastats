@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { IoArrowBackSharp, IoCalendarOutline, IoLocationOutline, IoPeopleOutline, IoFootballOutline, IoLayersOutline, IoPersonOutline, IoFootball } from 'react-icons/io5';
 import { configService } from '../services/configService';
 import Navbar from '../components/navbar';
-import Noauth_Navbar from '../components/noauth_Navbar';
+import NoauthNavbar from '../components/noauth_Navbar';
 import SeoHead from '../components/SeoHead';
 import { DEFAULT_SITE_TITLE } from '../config/siteConfig';
 import { buildSportsOrganizationJsonLd } from '../utils/seoJsonLd';
@@ -138,7 +138,7 @@ function Tourn_home() {
         />
       ) : null}
       <div className="topbar_home">
-        {isUserAuthenticated ? <Navbar tournamentId={id} /> : <Noauth_Navbar />}
+        {isUserAuthenticated ? <Navbar tournamentId={id} /> : <NoauthNavbar />}
       </div>
       <div className="body_container_home">
         {loading ? (

@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useLocation } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import Navbar from '../components/navbar';
 import { configService } from '../services/configService';

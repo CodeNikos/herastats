@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import Navbar from '../components/navbar';
-import Noauth_Navbar from '../components/noauth_Navbar';
+import NoauthNavbar from '../components/noauth_Navbar';
 import { useAuth } from '../hooks/useAuth';
 import { configService } from '../services/configService';
 import { isAdminOrSuperuser } from '../utils/userRoles';
@@ -310,7 +310,7 @@ function FootballEventsPage() {
     return (
       <div className="football-events-page">
         <div className="football-events-topbar">
-          <Noauth_Navbar />
+          <NoauthNavbar />
         </div>
         <main className="football-events-main">
           <p className="football-events-state">Inicia sesión para anotar eventos.</p>
