@@ -6,7 +6,9 @@ import { DEFAULT_SITE_DESCRIPTION, DEFAULT_SITE_TITLE } from '../config/siteConf
 import { useResolvedTournamentId } from '../hooks/useResolvedTournamentId';
 import TournamentBracket from '../components/TournamentBracket';
 import PlacementsBracket from '../components/PlacementsBracket';
+import FifaR32ThirdPlacePanel from '../components/FifaR32ThirdPlacePanel';
 import { useTournamentSport } from '../hooks/useTournamentSport';
+import { usesFifaWorldCupBracketAutoSlots } from '../utils/footballBracketSlotPolicy';
 import { configService } from '../services/configService';
 import {
   broadcastTournamentCoherenceChanged,
@@ -35,6 +37,7 @@ function PoolBracketsPage() {
     tournamentName: tournamentDisplayName,
     tournamentImageUrl
   } = useTournamentSport(tournamentId);
+  const isFifaWorldCupBracket = usesFifaWorldCupBracketAutoSlots({ tournamentId, sportId });
   const [selectedDivision, setSelectedDivision] = useState('');
   const [activeBracketView, setActiveBracketView] = useState('all');
 
@@ -423,6 +426,9 @@ function PoolBracketsPage() {
           </section>
         ) : (
           <>
+            {isFifaWorldCupBracket ? (
+              <FifaR32ThirdPlacePanel tournamentId={tournamentId} division={selectedDivision} />
+            ) : null}
             <TournamentBracket
               tournamentId={tournamentId}
               selectedDivision={selectedDivision}

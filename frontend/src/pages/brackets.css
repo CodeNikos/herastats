@@ -94,6 +94,14 @@
   background: #fef2f2;
 }
 
+.brackets-best-third--compact .brackets-best-third-section-title {
+  margin-top: 0;
+}
+
+.brackets-best-third--compact .brackets-best-third-hint {
+  margin-bottom: 0.5rem;
+}
+
 .brackets-best-third-title {
   margin: 0 0 0.35rem;
   font-size: 1.05rem;
