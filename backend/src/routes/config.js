@@ -44,7 +44,8 @@ const {
   getTournamentPlayerEventStats,
   downloadGameEventsTemplate,
   bulkImportGameEvents,
-  syncPlayoffBracketAdvances
+  syncPlayoffBracketAdvances,
+  getAppSettings
 } = require('../controllers/configController');
 const {
   getTournamentSpiritStats,
@@ -63,6 +64,8 @@ const {
 const { imageFileFilter, excelFileFilter } = require('../middleware/uploadFilters');
 
 const router = express.Router();
+
+router.get('/app-settings', getAppSettings);
 
 const storage = multer.memoryStorage();
 const uploadImageMulter = multer({

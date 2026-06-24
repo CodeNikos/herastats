@@ -47,6 +47,16 @@ export const configService = {
     }
   },
 
+  /** Config pública (p. ej. torneo WC para Anexo C FIFA). */
+  async getAppSettings() {
+    try {
+      const response = await api.get('/config/app-settings');
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
   /**
    * Actualizar una configuración de torneo
    * @param {number} id - ID del torneo

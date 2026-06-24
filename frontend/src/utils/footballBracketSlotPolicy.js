@@ -10,17 +10,24 @@ const toPositiveInt = (value) => {
 };
 
 /** Auto-asignación de mejores terceros (3X, Anexo C): torneo WC configurado y sport_id = 2. */
-export function usesFifaWorldCupBracketAutoSlots({ tournamentId, sportId } = {}) {
+export function usesFifaWorldCupBracketAutoSlots({
+  tournamentId,
+  sportId,
+  fifaWcTournamentId
+} = {}) {
   const tid = toPositiveInt(tournamentId);
   const sid = toPositiveInt(sportId);
-  return sid === FOOTBALL_SPORT_ID && tid === FIFA_WC_TOURNAMENT_ID;
+  const wcId = toPositiveInt(fifaWcTournamentId) ?? FIFA_WC_TOURNAMENT_ID;
+  return sid === FOOTBALL_SPORT_ID && tid === wcId;
 }
 
 /**
  * @returns {'fifa-wc' | 'none'}
  * Otros torneos de fútbol: cruces 1A/2B se configuran manualmente en Loc./Vis.
  */
-export function getFootballBracketSlotMode({ tournamentId, sportId } = {}) {
-  if (usesFifaWorldCupBracketAutoSlots({ tournamentId, sportId })) return 'fifa-wc';
+export function getFootballBracketSlotMode({ tournamentId, sportId, fifaWcTournamentId } = {}) {
+  if (usesFifaWorldCupBracketAutoSlots({ tournamentId, sportId, fifaWcTournamentId })) {
+    return 'fifa-wc';
+  }
   return 'none';
 }

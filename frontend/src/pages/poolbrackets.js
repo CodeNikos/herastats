@@ -8,6 +8,7 @@ import TournamentBracket from '../components/TournamentBracket';
 import PlacementsBracket from '../components/PlacementsBracket';
 import FifaR32ThirdPlacePanel from '../components/FifaR32ThirdPlacePanel';
 import { useTournamentSport } from '../hooks/useTournamentSport';
+import { useFifaWcTournamentId } from '../hooks/useFifaWcTournamentId';
 import { usesFifaWorldCupBracketAutoSlots } from '../utils/footballBracketSlotPolicy';
 import { configService } from '../services/configService';
 import {
@@ -37,7 +38,12 @@ function PoolBracketsPage() {
     tournamentName: tournamentDisplayName,
     tournamentImageUrl
   } = useTournamentSport(tournamentId);
-  const isFifaWorldCupBracket = usesFifaWorldCupBracketAutoSlots({ tournamentId, sportId });
+  const { fifaWcTournamentId } = useFifaWcTournamentId();
+  const isFifaWorldCupBracket = usesFifaWorldCupBracketAutoSlots({
+    tournamentId,
+    sportId,
+    fifaWcTournamentId
+  });
   const [selectedDivision, setSelectedDivision] = useState('');
   const [activeBracketView, setActiveBracketView] = useState('all');
 
@@ -451,6 +457,7 @@ function PoolBracketsPage() {
                     readOnly={true}
                     isFootballTournament={isFootballTournament}
                     sportId={sportId}
+                    fifaWcTournamentId={fifaWcTournamentId}
                     isPoolBracketsPage
                     useGoalTotalsForScores={!isFootballTournament}
                     poolScoresSyncEpoch={poolScoresSyncEpoch}
@@ -467,6 +474,7 @@ function PoolBracketsPage() {
                     readOnly={true}
                     isFootballTournament={isFootballTournament}
                     sportId={sportId}
+                    fifaWcTournamentId={fifaWcTournamentId}
                     forcedRankedCanvasIds={rankedCanvasIds}
                     isPoolRankedView={true}
                     isPoolBracketsPage
@@ -485,6 +493,7 @@ function PoolBracketsPage() {
                 readOnly={true}
                 isFootballTournament={isFootballTournament}
                 sportId={sportId}
+                fifaWcTournamentId={fifaWcTournamentId}
                 forcedRankedCanvasIds={
                   !isFootballTournament && activeBracketView === 'ranked' ? rankedCanvasIds : undefined
                 }

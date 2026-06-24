@@ -21,6 +21,7 @@ import {
 import { aggregateTeamCardStatsFromPlayerRows, computeBestThirdPlaceDashboard } from '../utils/bestThirdPlace';
 import { applyAutoFootballBracketSlotsToRounds } from '../utils/footballBracketSlots';
 import { getFootballBracketSlotMode } from '../utils/footballBracketSlotPolicy';
+import { useFifaWcTournamentId } from '../hooks/useFifaWcTournamentId';
 import { fetchTournamentStandingsInventory } from '../utils/tournamentStandingsRefresh';
 import {
   BRACKET_PLACEMENT_OPTIONS,
@@ -1558,9 +1559,12 @@ function PlacementsBracket({
   /** Solo lectura: al hacer clic en la tarjeta navega a `/game` (p. ej. Pool & Brackets). */
   onGameNavigate,
   isFootballTournament = false,
-  sportId = null
+  sportId = null,
+  fifaWcTournamentId = null
 }) {
   const location = useLocation();
+  const { fifaWcTournamentId: fetchedFifaWcTournamentId } = useFifaWcTournamentId();
+  const resolvedFifaWcTournamentId = fifaWcTournamentId ?? fetchedFifaWcTournamentId;
   const boardRef = useRef(null);
   /** El primer lienzo correcto ya se pintó: recargas en Pool lectura omiten spinner. */
   const poolBracketHydratedRef = useRef(false);
@@ -3040,7 +3044,11 @@ function PlacementsBracket({
     if (!String(selectedDivision ?? '').trim()) return;
     if (!Array.isArray(rounds) || rounds.length === 0) return;
 
-    const slotMode = getFootballBracketSlotMode({ tournamentId, sportId });
+    const slotMode = getFootballBracketSlotMode({
+      tournamentId,
+      sportId,
+      fifaWcTournamentId: resolvedFifaWcTournamentId
+    });
     if (slotMode !== 'fifa-wc') return;
 
     const dashboard = computeBestThirdPlaceDashboard(
@@ -3067,6 +3075,7 @@ function PlacementsBracket({
     isFootballTournament,
     tournamentId,
     sportId,
+    resolvedFifaWcTournamentId,
     isRankedView,
     loading,
     selectedDivision,

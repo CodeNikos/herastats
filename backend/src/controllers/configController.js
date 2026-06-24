@@ -3387,6 +3387,28 @@ const syncPlayoffBracketAdvances = async (req, res) => {
   }
 };
 
+const getAppSettings = async (req, res) => {
+  try {
+    const { DEFAULT_TARGET_TOURNAMENT_ID } = require('../services/tournament2Sync/constants');
+    const raw = process.env.TOURNAMENT_2_SYNC_TARGET_TOURNAMENT_ID;
+    const parsed = Number(raw);
+    const fifaWcTournamentId =
+      Number.isInteger(parsed) && parsed > 0 ? parsed : DEFAULT_TARGET_TOURNAMENT_ID;
+
+    res.json({
+      success: true,
+      message: 'Configuración pública obtenida',
+      data: { fifaWcTournamentId }
+    });
+  } catch (error) {
+    console.error('Error en getAppSettings:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al obtener configuración pública'
+    });
+  }
+};
+
 module.exports = {
   createTournament,
   getTournaments,
@@ -3431,5 +3453,6 @@ module.exports = {
   getTournamentPlayerEventStats,
   downloadGameEventsTemplate,
   bulkImportGameEvents,
-  syncPlayoffBracketAdvances
+  syncPlayoffBracketAdvances,
+  getAppSettings
 };

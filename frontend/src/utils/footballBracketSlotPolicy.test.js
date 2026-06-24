@@ -7,31 +7,61 @@ import {
 import { FOOTBALL_SPORT_ID } from './footballEventTypes';
 
 describe('footballBracketSlotPolicy', () => {
-  const otherFootballTournamentId = FIFA_WC_TOURNAMENT_ID === 2 ? 3 : 2;
+  const wcId = FIFA_WC_TOURNAMENT_ID;
+  const otherFootballTournamentId = wcId === 2 ? 3 : 2;
 
   test('auto mejores terceros solo torneo WC configurado y sport_id 2', () => {
-    expect(usesFifaWorldCupBracketAutoSlots({ tournamentId: FIFA_WC_TOURNAMENT_ID, sportId: 2 })).toBe(
-      true
-    );
     expect(
-      usesFifaWorldCupBracketAutoSlots({ tournamentId: FIFA_WC_TOURNAMENT_ID, sportId: 1 })
+      usesFifaWorldCupBracketAutoSlots({ tournamentId: wcId, sportId: 2, fifaWcTournamentId: wcId })
+    ).toBe(true);
+    expect(
+      usesFifaWorldCupBracketAutoSlots({ tournamentId: wcId, sportId: 1, fifaWcTournamentId: wcId })
     ).toBe(false);
-    expect(usesFifaWorldCupBracketAutoSlots({ tournamentId: otherFootballTournamentId, sportId: 2 })).toBe(
-      false
-    );
-    expect(getFootballBracketSlotMode({ tournamentId: FIFA_WC_TOURNAMENT_ID, sportId: 2 })).toBe(
-      'fifa-wc'
-    );
+    expect(
+      usesFifaWorldCupBracketAutoSlots({
+        tournamentId: otherFootballTournamentId,
+        sportId: 2,
+        fifaWcTournamentId: wcId
+      })
+    ).toBe(false);
+    expect(
+      getFootballBracketSlotMode({ tournamentId: wcId, sportId: 2, fifaWcTournamentId: wcId })
+    ).toBe('fifa-wc');
+  });
+
+  test('acepta id WC desde API en runtime (prod torneo 3)', () => {
+    expect(
+      usesFifaWorldCupBracketAutoSlots({
+        tournamentId: 3,
+        sportId: 2,
+        fifaWcTournamentId: 3
+      })
+    ).toBe(true);
+    expect(
+      usesFifaWorldCupBracketAutoSlots({
+        tournamentId: 3,
+        sportId: 2,
+        fifaWcTournamentId: 2
+      })
+    ).toBe(false);
   });
 
   test('otros torneos de fútbol sin auto-asignación', () => {
-    expect(getFootballBracketSlotMode({ tournamentId: 10, sportId: 2 })).toBe('none');
-    expect(getFootballBracketSlotMode({ tournamentId: 5, sportId: 2 })).toBe('none');
+    expect(getFootballBracketSlotMode({ tournamentId: 10, sportId: 2, fifaWcTournamentId: wcId })).toBe(
+      'none'
+    );
+    expect(getFootballBracketSlotMode({ tournamentId: 5, sportId: 2, fifaWcTournamentId: wcId })).toBe(
+      'none'
+    );
   });
 
   test('no aplica fuera de fútbol', () => {
-    expect(getFootballBracketSlotMode({ tournamentId: FIFA_WC_TOURNAMENT_ID, sportId: 1 })).toBe('none');
-    expect(getFootballBracketSlotMode({ tournamentId: null, sportId: 2 })).toBe('none');
+    expect(
+      getFootballBracketSlotMode({ tournamentId: wcId, sportId: 1, fifaWcTournamentId: wcId })
+    ).toBe('none');
+    expect(getFootballBracketSlotMode({ tournamentId: null, sportId: 2, fifaWcTournamentId: wcId })).toBe(
+      'none'
+    );
   });
 
   test('torneo WC lee REACT_APP_FIFA_WC_TOURNAMENT_ID (por defecto id 2)', () => {

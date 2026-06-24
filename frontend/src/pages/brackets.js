@@ -6,6 +6,7 @@ import { useResolvedTournamentId } from '../hooks/useResolvedTournamentId';
 import TournamentBracket from '../components/TournamentBracket';
 import PlacementsBracket from '../components/PlacementsBracket';
 import { useTournamentSport } from '../hooks/useTournamentSport';
+import { useFifaWcTournamentId } from '../hooks/useFifaWcTournamentId';
 import { usesFifaWorldCupBracketAutoSlots } from '../utils/footballBracketSlotPolicy';
 import { configService } from '../services/configService';
 import './brackets.css';
@@ -18,7 +19,12 @@ function BracketsPage() {
   const [activeBracketView, setActiveBracketView] = useState('all');
   const [rankedCanvasList, setRankedCanvasList] = useState([]);
   const { isFootballTournament, sportId } = useTournamentSport(tournamentId);
-  const isFifaWorldCupBracket = usesFifaWorldCupBracketAutoSlots({ tournamentId, sportId });
+  const { fifaWcTournamentId } = useFifaWcTournamentId();
+  const isFifaWorldCupBracket = usesFifaWorldCupBracketAutoSlots({
+    tournamentId,
+    sportId,
+    fifaWcTournamentId
+  });
   const rankedCanvasIds = useMemo(
     () => rankedCanvasList.map((canvas) => String(canvas.id)).filter(Boolean),
     [rankedCanvasList]
@@ -123,6 +129,7 @@ function BracketsPage() {
                     readOnly={isPoolMode}
                     isFootballTournament={isFootballTournament}
                     sportId={sportId}
+                    fifaWcTournamentId={fifaWcTournamentId}
                   />
                 </section>
                 <section className="brackets-ranked-canvas-block">
@@ -138,6 +145,7 @@ function BracketsPage() {
                     forcedRankedCanvasIds={rankedCanvasIds}
                     isFootballTournament={isFootballTournament}
                     sportId={sportId}
+                    fifaWcTournamentId={fifaWcTournamentId}
                   />
                 </section>
               </div>
@@ -155,6 +163,7 @@ function BracketsPage() {
                 }
                 isFootballTournament={isFootballTournament}
                 sportId={sportId}
+                fifaWcTournamentId={fifaWcTournamentId}
               />
             ) : null}
           </>
