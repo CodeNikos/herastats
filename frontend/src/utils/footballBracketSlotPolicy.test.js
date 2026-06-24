@@ -23,8 +23,11 @@ describe('footballBracketSlotPolicy', () => {
     expect(getFootballBracketSlotMode({ tournamentId: null, sportId: 2 })).toBe('none');
   });
 
-  test('torneo WC por defecto es id 2', () => {
-    expect(FIFA_WC_BRACKET_TOURNAMENT_ID).toBe(2);
+  test('torneo WC configurable por env (por defecto id 2)', () => {
+    const expected = Number(process.env.REACT_APP_FIFA_WC_TOURNAMENT_ID);
+    expect(FIFA_WC_BRACKET_TOURNAMENT_ID).toBe(
+      Number.isInteger(expected) && expected > 0 ? expected : 2
+    );
     expect(FOOTBALL_SPORT_ID).toBe(2);
   });
 });

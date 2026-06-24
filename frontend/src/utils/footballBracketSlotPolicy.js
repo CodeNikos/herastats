@@ -2,9 +2,17 @@ import { FOOTBALL_SPORT_ID } from './footballEventTypes';
 
 /**
  * Torneo con formato Copa del Mundo (12 grupos, mejores terceros, Anexo C FIFA).
- * Coincide con TOURNAMENT_2_SYNC_TARGET_TOURNAMENT_ID del backend (por defecto 2).
+ * Debe coincidir con TOURNAMENT_2_SYNC_TARGET_TOURNAMENT_ID del backend (local: 2, prod: suele ser 3).
  */
-export const FIFA_WC_BRACKET_TOURNAMENT_ID = 2;
+const parsePositiveInt = (value, fallback) => {
+  const n = Number(value);
+  return Number.isInteger(n) && n > 0 ? n : fallback;
+};
+
+export const FIFA_WC_BRACKET_TOURNAMENT_ID = parsePositiveInt(
+  process.env.REACT_APP_FIFA_WC_TOURNAMENT_ID,
+  2
+);
 
 const toPositiveInt = (value) => {
   const n = Number(value);
