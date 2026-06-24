@@ -1,29 +1,19 @@
+import { FIFA_WC_TOURNAMENT_ID } from '../config/fifaWcConfig';
 import { FOOTBALL_SPORT_ID } from './footballEventTypes';
 
-/**
- * Torneo con formato Copa del Mundo (12 grupos, mejores terceros, Anexo C FIFA).
- * Debe coincidir con TOURNAMENT_2_SYNC_TARGET_TOURNAMENT_ID del backend (local: 2, prod: suele ser 3).
- */
-const parsePositiveInt = (value, fallback) => {
-  const n = Number(value);
-  return Number.isInteger(n) && n > 0 ? n : fallback;
-};
-
-export const FIFA_WC_BRACKET_TOURNAMENT_ID = parsePositiveInt(
-  process.env.REACT_APP_FIFA_WC_TOURNAMENT_ID,
-  2
-);
+/** @deprecated Usar FIFA_WC_TOURNAMENT_ID desde fifaWcConfig */
+export const FIFA_WC_BRACKET_TOURNAMENT_ID = FIFA_WC_TOURNAMENT_ID;
 
 const toPositiveInt = (value) => {
   const n = Number(value);
   return Number.isInteger(n) && n > 0 ? n : null;
 };
 
-/** Auto-asignación de mejores terceros (3X, Anexo C): solo torneo 2 y sport_id = 2. */
+/** Auto-asignación de mejores terceros (3X, Anexo C): torneo WC configurado y sport_id = 2. */
 export function usesFifaWorldCupBracketAutoSlots({ tournamentId, sportId } = {}) {
   const tid = toPositiveInt(tournamentId);
   const sid = toPositiveInt(sportId);
-  return sid === FOOTBALL_SPORT_ID && tid === FIFA_WC_BRACKET_TOURNAMENT_ID;
+  return sid === FOOTBALL_SPORT_ID && tid === FIFA_WC_TOURNAMENT_ID;
 }
 
 /**

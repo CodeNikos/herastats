@@ -19,4 +19,11 @@ if (isProd) {
       '[Herastats] AVISO: REACT_APP_API_URL apunta a localhost en build de producción.'
     );
   }
+
+  const fifaWcId = (process.env.REACT_APP_FIFA_WC_TOURNAMENT_ID || '').trim();
+  if (!fifaWcId) {
+    console.warn(
+      '[Herastats] AVISO: REACT_APP_FIFA_WC_TOURNAMENT_ID no está definido; se usará torneo id=2 (solo válido en local).'
+    );
+  }
 }

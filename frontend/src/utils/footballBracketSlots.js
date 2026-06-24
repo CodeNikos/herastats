@@ -1,6 +1,6 @@
 /**
  * Asignación automática en brackets de fútbol.
- * - Torneo WC (id 2, sport 2): solo slots de mejores terceros (3X) según Anexo C FIFA.
+ * - Torneo WC (REACT_APP_FIFA_WC_TOURNAMENT_ID, sport 2): solo slots 3X según Anexo C FIFA.
  * - Resto de cruces (1A, 2B, 1C, 2F…): configuración manual en Loc./Vis.
  */
 

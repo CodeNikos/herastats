@@ -9,7 +9,7 @@ const TEAM_FALLBACK_IMAGE = '/Hera_logo.png';
 
 /**
  * Tabla Dieciseisavos — 1X vs mejor 3.º (Anexo C FIFA).
- * Torneo WC (sport_id=2, id=2).
+ * Torneo WC: sport_id=2 y torneo_id = REACT_APP_FIFA_WC_TOURNAMENT_ID.
  */
 function FifaR32ThirdPlacePanel({ tournamentId, division }) {
   const [loading, setLoading] = useState(true);
