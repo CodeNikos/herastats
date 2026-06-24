@@ -182,6 +182,54 @@ describe('footballBracketSlots', () => {
     expect(changed).toBe(false);
   });
 
+  test('asigna 3X por local 1X (Anexo C), no por bracket_order desordenado', () => {
+    const combo = lookupFifaThirdPlaceCombination(['E', 'F', 'G', 'H', 'I', 'J', 'K', 'L']);
+    const slot1D = combo.slots.slot1D;
+
+    const rounds = [
+      {
+        id: 'round-1',
+        title: 'Dieciseisavos',
+        matches: [
+          {
+            id: 'g-1',
+            bracketOrder: 1,
+            statsSlotLocal: '2A',
+            statsSlotVisitor: '2B',
+            teams: [{ teamId: '' }, { teamId: '' }]
+          },
+          {
+            id: 'g-d',
+            bracketOrder: 3,
+            statsSlotLocal: '1D',
+            statsSlotVisitor: '3D',
+            teams: [{ teamId: '' }, { teamId: '' }]
+          },
+          {
+            id: 'g-a',
+            bracketOrder: 99,
+            statsSlotLocal: '1A',
+            statsSlotVisitor: null,
+            teams: [{ teamId: '' }, { teamId: '' }]
+          }
+        ]
+      }
+    ];
+
+    const { rounds: next, changed } = applyFifaThirdPlaceSlotsOnlyToRounds(
+      rounds,
+      ['E', 'F', 'G', 'H', 'I', 'J', 'K', 'L']
+    );
+
+    expect(changed).toBe(true);
+    expect(slot1D).not.toBe('3D');
+    expect(next[0].matches.find((m) => m.statsSlotLocal === '1D').statsSlotVisitor).toBe(slot1D);
+    expect(next[0].matches.find((m) => m.statsSlotLocal === '1A').statsSlotVisitor).toBe(
+      combo.slots.slot1A
+    );
+    expect(next[0].matches[0].statsSlotVisitor).toBe('2B');
+  });
+
   test('applyAutoFootballBracketSlotsToRounds solo despacha fifa-wc', () => {
     const rounds = [
       {

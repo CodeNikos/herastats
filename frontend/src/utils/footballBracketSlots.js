@@ -4,7 +4,7 @@
  * - Resto de cruces (1A, 2B, 1C, 2F…): configuración manual en Loc./Vis.
  */
 
-import { lookupFifaThirdPlaceCombination } from './fifaThirdPlaceCombinations';
+import { lookupFifaThirdPlaceCombination, validateFifaCombinationSlots } from './fifaThirdPlaceCombinations';
 
 /** Orden oficial de los 16 partidos de dieciseisavos (referencia FIFA WC26). */
 export const FIFA_R32_MATCH_SLOT_TEMPLATE = Object.freeze([
@@ -150,6 +150,60 @@ function applyAssignmentsToRound(round, assignments) {
   return { round: { ...round, matches: updatedMatches }, changed: true };
 }
 
+/** Extrae letra de grupo de slot 1X (ej. 1D → D). */
+function winnerGroupFromLocalSlot(slot) {
+  const normalized = normSlot(slot);
+  const m = normalized.match(/^1([A-Z])$/);
+  return m ? m[1] : '';
+}
+
+/**
+ * Asigna cada 3X al partido cuyo local es 1A, 1B, 1D… (Anexo C), no por bracket_order.
+ * Evita cruces erróneos cuando bracket_order en BD no coincide con la plantilla FIFA.
+ */
+function applyFifaThirdPlaceAssignmentsByWinnerSlot(round, fifaCombination) {
+  if (!round?.matches?.length || !fifaCombination?.slots) {
+    return { round, changed: false };
+  }
+
+  if (!validateFifaCombinationSlots(fifaCombination.slots)) {
+    return { round, changed: false };
+  }
+
+  const updatedMatches = (round.matches || []).map((match) => ({
+    ...match,
+    teams: [...(match.teams || [])]
+  }));
+
+  let anyChanged = false;
+
+  for (const entry of FIFA_R32_MATCH_SLOT_TEMPLATE) {
+    if (!entry.visitorSlotKey) continue;
+
+    const thirdSlot = fifaCombination.slots[entry.visitorSlotKey];
+    if (!thirdSlot || !isThirdPlaceGroupSlot(thirdSlot)) continue;
+
+    const winnerLocal = normSlot(entry.local);
+    const winnerGroup = winnerGroupFromLocalSlot(winnerLocal);
+    const thirdGroup = String(thirdSlot).replace(/^3/, '').toUpperCase();
+    if (!winnerGroup || thirdGroup === winnerGroup) continue;
+
+    const matchIndex = updatedMatches.findIndex((match) => normSlot(match.statsSlotLocal) === winnerLocal);
+    if (matchIndex < 0) continue;
+
+    const { match: nextMatch, changed } = applySlotAssignmentToMatch(updatedMatches[matchIndex], {
+      local: null,
+      visitor: thirdSlot
+    });
+
+    updatedMatches[matchIndex] = nextMatch;
+    if (changed) anyChanged = true;
+  }
+
+  if (!anyChanged) return { round, changed: false };
+  return { round: { ...round, matches: updatedMatches }, changed: true };
+}
+
 /**
  * Solo actualiza slots 3X (mejores terceros) en dieciseisavos según Anexo C.
  * No modifica 1A, 2B, 1C, 2F… ya configurados manualmente.
@@ -171,8 +225,10 @@ export function applyFifaThirdPlaceSlotsOnlyToRounds(rounds, qualifiedThirdGroup
   const fifaCombination = lookupFifaThirdPlaceCombination(letters);
   if (!fifaCombination) return { rounds, changed: false };
 
-  const assignments = buildFifaThirdPlaceOnlyAssignments(fifaCombination);
-  const { round: updatedRound, changed } = applyAssignmentsToRound(rounds[roundIndex], assignments);
+  const { round: updatedRound, changed } = applyFifaThirdPlaceAssignmentsByWinnerSlot(
+    rounds[roundIndex],
+    fifaCombination
+  );
 
   if (!changed) return { rounds, changed: false };
 
