@@ -77,6 +77,66 @@ describe('footballBracketSlots', () => {
     expect(next[0].matches[1].statsSlotVisitor).toBe('3E');
   });
 
+  test('no sobrescribe cruces manuales (W#, 1A, 2B…)', () => {
+    const rounds = [
+      {
+        id: 'round-1',
+        title: 'Dieciseisavos',
+        matches: [
+          {
+            id: 'g-1',
+            bracketOrder: 1,
+            statsSlotLocal: '2A',
+            statsSlotVisitor: 'W75',
+            teams: [{ teamId: '' }, { teamId: '' }]
+          },
+          {
+            id: 'g-7',
+            bracketOrder: 7,
+            statsSlotLocal: '1A',
+            statsSlotVisitor: '2B',
+            teams: [{ teamId: '' }, { teamId: '' }]
+          }
+        ]
+      }
+    ];
+
+    const { rounds: next, changed } = applyFifaThirdPlaceSlotsOnlyToRounds(
+      rounds,
+      ['E', 'F', 'G', 'H', 'I', 'J', 'K', 'L']
+    );
+
+    expect(changed).toBe(false);
+    expect(next[0].matches[0].statsSlotVisitor).toBe('W75');
+    expect(next[0].matches[1].statsSlotVisitor).toBe('2B');
+  });
+
+  test('actualiza solo hueco 3X vacío o ya marcado como tercero', () => {
+    const rounds = [
+      {
+        id: 'round-1',
+        title: 'Dieciseisavos',
+        matches: [
+          {
+            id: 'g-7',
+            bracketOrder: 7,
+            statsSlotLocal: '1A',
+            statsSlotVisitor: '3X',
+            teams: [{ teamId: '' }, { teamId: '' }]
+          }
+        ]
+      }
+    ];
+
+    const { rounds: next, changed } = applyFifaThirdPlaceSlotsOnlyToRounds(
+      rounds,
+      ['E', 'F', 'G', 'H', 'I', 'J', 'K', 'L']
+    );
+
+    expect(changed).toBe(true);
+    expect(next[0].matches[0].statsSlotVisitor).toBe('3E');
+  });
+
   test('no sobrescribe lado con equipo fijo', () => {
     const rounds = [
       {

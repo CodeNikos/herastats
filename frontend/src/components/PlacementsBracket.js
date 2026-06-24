@@ -19,7 +19,7 @@ import {
   resolveStatsSlotToTeam
 } from '../utils/schedulePlayoffSlotResolution';
 import { aggregateTeamCardStatsFromPlayerRows, computeBestThirdPlaceDashboard } from '../utils/bestThirdPlace';
-import { applyAutoFootballBracketSlotsToRounds } from '../utils/footballBracketSlots';
+import { applyAutoFootballBracketSlotsToRounds, findDieciseisavosRoundIndex, isThirdPlaceGroupSlot } from '../utils/footballBracketSlots';
 import { getFootballBracketSlotMode } from '../utils/footballBracketSlotPolicy';
 import { useFifaWcTournamentId } from '../hooks/useFifaWcTournamentId';
 import { fetchTournamentStandingsInventory } from '../utils/tournamentStandingsRefresh';
@@ -2763,7 +2763,10 @@ function PlacementsBracket({
             local: hasCompleteTeams ? localId : null,
             visitor: hasCompleteTeams ? visitorId : null,
             division: selectedDivision || null,
-            bracket_order: matchIndex + 1,
+            bracket_order:
+              Number.isFinite(Number(match.bracketOrder)) && Number(match.bracketOrder) > 0
+                ? Number(match.bracketOrder)
+                : matchIndex + 1,
             game_date: matchDate,
             game_time: matchTime,
             game_location: normGameLocationPersist(match.gameLocation),
@@ -3069,7 +3072,43 @@ function PlacementsBracket({
     setRounds(nextRounds);
 
     if (!readOnly) {
-      persistMainCanvas(nextRounds, manualLinksRef.current, { persistLinks: false });
+      const roundIndex = findDieciseisavosRoundIndex(nextRounds);
+      if (roundIndex < 0) return;
+
+      const prevMatches = rounds[roundIndex]?.matches || [];
+      const nextMatches = nextRounds[roundIndex]?.matches || [];
+      const normSlot = (value) => (value == null ? '' : String(value).trim().toUpperCase());
+
+      (async () => {
+        for (let i = 0; i < nextMatches.length; i += 1) {
+          const prev =
+            prevMatches.find((item) => String(item.id) === String(nextMatches[i].id)) || prevMatches[i];
+          const next = nextMatches[i];
+          const gameId = extractGameIdFromMatch(next);
+          if (!gameId) continue;
+
+          const payload = {};
+          const prevLocal = normSlot(prev?.statsSlotLocal);
+          const nextLocal = normSlot(next?.statsSlotLocal);
+          if (isThirdPlaceGroupSlot(nextLocal) && nextLocal !== prevLocal) {
+            payload.stats_slot_local = next.statsSlotLocal;
+          }
+
+          const prevVisitor = normSlot(prev?.statsSlotVisitor);
+          const nextVisitor = normSlot(next?.statsSlotVisitor);
+          if (isThirdPlaceGroupSlot(nextVisitor) && nextVisitor !== prevVisitor) {
+            payload.stats_slot_visitor = next.statsSlotVisitor;
+          }
+
+          if (Object.keys(payload).length === 0) continue;
+
+          try {
+            await configService.updateBracketGame(tournamentId, gameId, payload);
+          } catch (patchError) {
+            console.error('Error actualizando slot 3X del bracket:', patchError);
+          }
+        }
+      })();
     }
   }, [
     isFootballTournament,
@@ -3084,7 +3123,6 @@ function PlacementsBracket({
     standingsGamesRaw,
     cardStatsByTeamId,
     readOnly,
-    persistMainCanvas,
     silentStandingsNonce
   ]);
 

@@ -105,23 +105,28 @@ export function applySlotAssignmentToMatch(match, assignment) {
   let changed = false;
   const next = { ...match, teams: [...(match.teams || [])] };
 
-  if (!matchHasFixedTeamId(match, 0) && assignment.local) {
-    const slot = String(assignment.local).trim().toUpperCase();
-    if (normSlot(match.statsSlotLocal) !== slot) {
-      next.statsSlotLocal = slot;
-      next.teams[0] = emptyTeamForSlot();
-      changed = true;
-    }
-  }
+  const tryAssignThirdPlaceSide = (sideIndex, slotValue) => {
+    if (!slotValue || !isThirdPlaceGroupSlot(slotValue)) return;
+    if (matchHasFixedTeamId(match, sideIndex)) return;
 
-  if (!matchHasFixedTeamId(match, 1) && assignment.visitor) {
-    const slot = String(assignment.visitor).trim().toUpperCase();
-    if (normSlot(match.statsSlotVisitor) !== slot) {
-      next.statsSlotVisitor = slot;
-      next.teams[1] = emptyTeamForSlot();
-      changed = true;
+    const current = normSlot(sideIndex === 0 ? match.statsSlotLocal : match.statsSlotVisitor);
+    const nextSlot = String(slotValue).trim().toUpperCase();
+
+    // Solo huecos de mejores terceros: vacío o ya 3X. No tocar 1A, 2B, W#, L#, etc.
+    if (current !== '' && !isThirdPlaceGroupSlot(current)) return;
+    if (current === nextSlot) return;
+
+    if (sideIndex === 0) {
+      next.statsSlotLocal = nextSlot;
+    } else {
+      next.statsSlotVisitor = nextSlot;
     }
-  }
+    next.teams[sideIndex] = emptyTeamForSlot();
+    changed = true;
+  };
+
+  tryAssignThirdPlaceSide(0, assignment.local);
+  tryAssignThirdPlaceSide(1, assignment.visitor);
 
   return { match: next, changed };
 }
