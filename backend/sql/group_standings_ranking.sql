@@ -5,10 +5,10 @@
 --          entre equipos del mismo torneo, división y "group".
 --
 -- Orden:
---   1) Victorias (W) descendente
---   2) Empate en W:
+--   1) Puntos (3-1-0) descendente
+--   2) Empate en puntos:
 --        a) Si hubo al menos un partido de grupos entre los empatados → mini-liga
---           (W, GD, GF solo en esos enfrentamientos)
+--           (puntos, GD, GF solo en esos enfrentamientos)
 --        b) Si no hubo ningún enfrentamiento directo en el bloque → GD global,
 --           luego GF global, luego nombre
 --

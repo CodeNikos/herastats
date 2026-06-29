@@ -942,7 +942,7 @@ function StatsPage() {
                 PG — Partidos jugados | W — Victorias
                 {isFootballTournament ? ' | D — Empates | Pts — Puntos' : ''}
                 {' '}| L — Derrotas | GF — Goles a favor | GA — Goles en contra | GD — Diferencia de gol.
-                Empate en victorias: desempate por enfrentamientos directos en fase de grupos; si no hubo esos partidos, por diferencia de goles.
+                Clasificación: 1) puntos (3-1-0); 2) enfrentamiento directo entre empatados (puntos, diferencia y goles a favor solo en esos partidos); si no hubo esos partidos, por diferencia de goles global.
               </p>
               <div className="stats_standings_continue">
                 <span className="stats_standings_continue_label">Continúa a:</span>

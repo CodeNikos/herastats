@@ -8,8 +8,10 @@ export { isFinishedGameEstado } from './gameEstado';
  * Calcula orden por partidos terminados en fase de grupos dentro del grupo;
  * si no, usa campos persistidos del equipo (misma semántica que stats.js).
  *
- * Desempate a igual victorias: mini-liga entre empatados (partidos de grupos entre sí);
- * si no hay esos partidos, diferencia de goles global del grupo.
+ * Orden principal: puntos (3 victoria, 1 empate, 0 derrota).
+ * Desempate a igual puntos: enfrentamiento directo en fase de grupos (solo partidos entre
+ * empatados) → puntos H2H, diferencia de goles H2H, goles a favor H2H;
+ * si no hubo esos partidos, diferencia de goles global del grupo.
  */
 
 export function normalizeGroupName(groupValue) {
@@ -45,6 +47,15 @@ export function parseGoalsCell(value) {
   return Number.isFinite(n) && n >= 0 ? n : 0;
 }
 
+/** Puntos 3-1-0 a partir de PG, W y L. */
+export function standingsPointsFromRecord(pg, wins, losses) {
+  const w = Number(wins) || 0;
+  const played = Number(pg) || 0;
+  const l = Number(losses) || 0;
+  const draws = Math.max(0, played - w - l);
+  return w * 3 + draws;
+}
+
 /**
  * @param {Set<number>} teamIdsSet
  * @param {Array<object>} allGames
@@ -71,13 +82,13 @@ function collectGroupPhaseHeadToHeadGames(teamIdsSet, allGames, divisionLabel) {
  * Estadísticas mini-liga solo con partidos entre equipos del conjunto `teamIds`.
  * @param {number[]} teamIds
  * @param {Array<object>} games
- * @returns {Map<number, { w: number, gf: number, ga: number }>}
+ * @returns {Map<number, { pts: number, gf: number, ga: number }>}
  */
 function computeMiniLeagueStats(teamIds, games) {
   const idSet = new Set(teamIds.map((id) => Number(id)).filter((id) => Number.isFinite(id)));
-  /** @type {Map<number, { w: number, gf: number, ga: number }>} */
+  /** @type {Map<number, { pts: number, gf: number, ga: number }>} */
   const mini = new Map();
-  idSet.forEach((id) => mini.set(id, { w: 0, gf: 0, ga: 0 }));
+  idSet.forEach((id) => mini.set(id, { pts: 0, gf: 0, ga: 0 }));
 
   for (const g of games || []) {
     const localId = Number(g.local);
@@ -96,9 +107,12 @@ function computeMiniLeagueStats(teamIds, games) {
     aVis.ga += ls;
 
     if (ls > vs) {
-      aLoc.w++;
+      aLoc.pts += 3;
     } else if (vs > ls) {
-      aVis.w++;
+      aVis.pts += 3;
+    } else {
+      aLoc.pts += 1;
+      aVis.pts += 1;
     }
   }
 
@@ -112,7 +126,7 @@ function miniGd(mini, teamId) {
 }
 
 /**
- * Compara dos filas empatadas en victorias.
+ * Compara dos filas empatadas en puntos.
  * @param {{ id: string | number; name?: string; gd?: number; gf?: number }} a
  * @param {{ id: string | number; name?: string; gd?: number; gf?: number }} b
  * @param {Array<object>} h2hGames partidos de grupos entre equipos del bloque empatado
@@ -128,10 +142,10 @@ function compareTiedStandingsRows(a, b, h2hGames, tiedTeamIds) {
   const mini = computeMiniLeagueStats(tiedTeamIds, h2hGames);
   const aId = Number(a.id);
   const bId = Number(b.id);
-  const aMini = mini.get(aId) || { w: 0, gf: 0, ga: 0 };
-  const bMini = mini.get(bId) || { w: 0, gf: 0, ga: 0 };
+  const aMini = mini.get(aId) || { pts: 0, gf: 0, ga: 0 };
+  const bMini = mini.get(bId) || { pts: 0, gf: 0, ga: 0 };
 
-  if (bMini.w !== aMini.w) return bMini.w - aMini.w;
+  if (bMini.pts !== aMini.pts) return bMini.pts - aMini.pts;
 
   const aMiniGd = miniGd(mini, aId);
   const bMiniGd = miniGd(mini, bId);
@@ -145,7 +159,7 @@ function compareTiedStandingsRows(a, b, h2hGames, tiedTeamIds) {
 }
 
 /**
- * Ordena filas con el mismo número de victorias aplicando desempate H2H o GD global.
+ * Ordena filas con los mismos puntos aplicando desempate H2H o GD global.
  */
 function sortStandingsCluster(cluster, allGames, divisionLabel) {
   if (cluster.length <= 1) return cluster;
@@ -158,17 +172,17 @@ function sortStandingsCluster(cluster, allGames, divisionLabel) {
 }
 
 function sortStandingsRows(rows, allGames, divisionLabel) {
-  const byWins = new Map();
+  const byPoints = new Map();
   for (const row of rows) {
-    const w = Number(row.wins) || 0;
-    if (!byWins.has(w)) byWins.set(w, []);
-    byWins.get(w).push(row);
+    const pts = Number(row.points) || 0;
+    if (!byPoints.has(pts)) byPoints.set(pts, []);
+    byPoints.get(pts).push(row);
   }
 
-  const winLevels = [...byWins.keys()].sort((a, b) => b - a);
+  const pointLevels = [...byPoints.keys()].sort((a, b) => b - a);
   const result = [];
-  for (const wins of winLevels) {
-    const cluster = byWins.get(wins) || [];
+  for (const pts of pointLevels) {
+    const cluster = byPoints.get(pts) || [];
     result.push(...sortStandingsCluster(cluster, allGames, divisionLabel));
   }
   return result;
@@ -245,11 +259,15 @@ export function buildGroupStandingsRows(groupTeams, allGames, divisionLabel) {
     }
 
     const gd = gf - ga;
+    const draws = Math.max(0, pg - wins - losses);
+    const points = standingsPointsFromRecord(pg, wins, losses);
     return {
       ...t,
       pg,
       wins,
       losses,
+      draws,
+      points,
       gf,
       ga,
       gd
