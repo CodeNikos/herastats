@@ -41,9 +41,15 @@ function formatDateTime(value) {
 function formatDayLabel(day) {
   if (!day) return '';
   try {
-    return new Date(`${day}T12:00:00`).toLocaleDateString('es', {
+    const text = String(day).trim();
+    const d = /^\d{4}-\d{2}-\d{2}$/.test(text)
+      ? new Date(`${text}T12:00:00`)
+      : new Date(text);
+    return d.toLocaleDateString('es', {
+      weekday: 'short',
       day: '2-digit',
-      month: 'short'
+      month: 'short',
+      year: 'numeric'
     });
   } catch {
     return String(day);
@@ -180,7 +186,14 @@ const AnalyticsDashboard = () => {
                   <ResponsiveContainer width="100%" height={280}>
                     <LineChart data={timeseries}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                      <XAxis dataKey="day" tickFormatter={formatDayLabel} />
+                      <XAxis
+                        dataKey="date"
+                        tickFormatter={formatDayLabel}
+                        minTickGap={24}
+                        angle={-35}
+                        textAnchor="end"
+                        height={56}
+                      />
                       <YAxis allowDecimals={false} />
                       <Tooltip
                         labelFormatter={formatDayLabel}
@@ -201,7 +214,7 @@ const AnalyticsDashboard = () => {
               <section className="analytics-panel">
                 <h2>Top países</h2>
                 {topCountries.length === 0 ? (
-                  <p className="analytics-empty">Sin datos de país (activa Cloudflare o GeoIP).</p>
+                  <p className="analytics-empty">Sin datos de país en el rango seleccionado.</p>
                 ) : (
                   <ul className="analytics-bar-list">
                     {topCountries.map((row) => (

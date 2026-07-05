@@ -103,10 +103,28 @@ async function getTimeseries(req, res) {
   try {
     const { from, to, days } = req.query;
     const rows = await PageVisit.getTimeseries({ from, to, days });
-    return res.json({ success: true, data: { rows } });
+    return res.json({
+      success: true,
+      data: {
+        rows,
+        from: rows[0]?.date || null,
+        to: rows[rows.length - 1]?.date || null
+      }
+    });
   } catch (err) {
     console.error('analytics timeseries:', err);
     return res.status(500).json({ success: false, message: 'No se pudo cargar la serie temporal' });
+  }
+}
+
+async function getCountries(req, res) {
+  try {
+    const { from, to, limit } = req.query;
+    const rows = await PageVisit.getCountryStats({ from, to, limit });
+    return res.json({ success: true, data: { rows } });
+  } catch (err) {
+    console.error('analytics countries:', err);
+    return res.status(500).json({ success: false, message: 'No se pudo cargar el desglose por países' });
   }
 }
 
@@ -114,5 +132,6 @@ module.exports = {
   collectVisit,
   getSummary,
   getVisits,
-  getTimeseries
+  getTimeseries,
+  getCountries
 };

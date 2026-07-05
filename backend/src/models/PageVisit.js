@@ -190,6 +190,53 @@ class PageVisit {
       )
     ).rows;
 
+    const range = PageVisit._resolveTimeseriesRange({ from, to, days });
+    const byDate = new Map();
+    for (const row of rows) {
+      const date = PageVisit._formatDateKey(row.day);
+      if (!date) continue;
+      byDate.set(date, {
+        visits: Number(row.visits) || 0,
+        unique_visitors: Number(row.unique_visitors) || 0
+      });
+    }
+
+    const allDates = PageVisit._iterateUtcDates(range.startDate, range.endDate);
+    return allDates.map((date) => {
+      const stats = byDate.get(date);
+      return {
+        date,
+        day: date,
+        visits: stats?.visits ?? 0,
+        unique_visitors: stats?.unique_visitors ?? 0
+      };
+    });
+  }
+
+  static async getCountryStats({ from, to, limit = 50 } = {}) {
+    const params = [];
+    const human = PageVisit.humanOnlyClause();
+    const rangeFilter = PageVisit._buildDateFilter(params, from, to, 'visited_at');
+    const rangeWhere = rangeFilter ? `AND ${rangeFilter}` : '';
+    const safeLimit = Math.min(Math.max(Number(limit) || 50, 1), 200);
+
+    const rows = (
+      await pool.query(
+        `
+        SELECT country_code,
+               COALESCE(MAX(country_name), country_code) AS country_name,
+               COUNT(*)::int AS visits,
+               COUNT(DISTINCT visitor_key)::int AS unique_visitors
+        FROM page_visits
+        WHERE country_code IS NOT NULL AND ${human} ${rangeWhere}
+        GROUP BY country_code
+        ORDER BY visits DESC
+        LIMIT $${params.length + 1}
+        `,
+        [...params, safeLimit]
+      )
+    ).rows;
+
     return rows;
   }
 
@@ -213,6 +260,54 @@ class PageVisit {
       parts.push(`${column} <= $${params.length}::timestamptz`);
     }
     return parts.join(' AND ');
+  }
+
+  static _formatDateKey(value) {
+    if (!value) return null;
+    if (value instanceof Date && !Number.isNaN(value.getTime())) {
+      return value.toISOString().slice(0, 10);
+    }
+    const text = String(value).trim();
+    if (/^\d{4}-\d{2}-\d{2}/.test(text)) return text.slice(0, 10);
+    const parsed = new Date(text);
+    if (!Number.isNaN(parsed.getTime())) return parsed.toISOString().slice(0, 10);
+    return null;
+  }
+
+  static _resolveTimeseriesRange({ from, to, days = 30 } = {}) {
+    let endDate = PageVisit._utcDateFromInput(to || new Date());
+    let startDate;
+    if (from) {
+      startDate = PageVisit._utcDateFromInput(from);
+    } else {
+      const span = Math.min(Math.max(Number(days) || 30, 1), 365);
+      startDate = new Date(endDate);
+      startDate.setUTCDate(startDate.getUTCDate() - (span - 1));
+    }
+    if (startDate > endDate) {
+      const swap = startDate;
+      startDate = endDate;
+      endDate = swap;
+    }
+    return { startDate, endDate };
+  }
+
+  static _utcDateFromInput(value) {
+    const parsed = value instanceof Date ? value : new Date(value);
+    const date = new Date(parsed);
+    date.setUTCHours(0, 0, 0, 0);
+    return date;
+  }
+
+  static _iterateUtcDates(startDate, endDate) {
+    const dates = [];
+    const cursor = PageVisit._utcDateFromInput(startDate);
+    const end = PageVisit._utcDateFromInput(endDate);
+    while (cursor <= end) {
+      dates.push(cursor.toISOString().slice(0, 10));
+      cursor.setUTCDate(cursor.getUTCDate() + 1);
+    }
+    return dates;
   }
 }
 
